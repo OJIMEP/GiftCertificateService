@@ -1,4 +1,4 @@
-﻿namespace GiftCertificateService.Models
+﻿namespace GiftCertificateService.Data
 {
     public static class Queries
     {
@@ -53,5 +53,12 @@ Group by
 	[_Fld4242],
 	CertStatus
 Having Sum([_Fld16861]) > 0;";
-    }
+
+		public const string DatebaseBalancingReplicaFull = @"select datediff(ms, last_commit_time, getdate())
+from [master].[sys].[dm_hadr_database_replica_states]";
+
+		public const string DatebaseBalancingMain = @"select top (1) _IDRRef from dbo._Reference112";
+
+		public const string DatebaseBalancingReplicaTables = @"Select TOP(1) _IDRRef FROM dbo._Reference99";
+	}
 }
