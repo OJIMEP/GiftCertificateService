@@ -1,11 +1,15 @@
 using AuthLibrary.Data;
+using FluentValidation;
 using GiftCertificateService.Data;
+using GiftCertificateService.Filters;
 using GiftCertificateService.Logging;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
+using System.Reflection;
 using System.Text;
 
 namespace GiftCertificateService
@@ -54,9 +58,48 @@ namespace GiftCertificateService
             builder.Services.AddScoped<IUserService, UserService>();
             builder.Services.AddScoped<ILoadBalancing, LoadBalancing>();
 
+            builder.Services.AddValidatorsFromAssemblyContaining(typeof(Program));
+            ValidatorOptions.Global.LanguageManager.Enabled = false;
+
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
             builder.Services.AddEndpointsApiExplorer();
-            builder.Services.AddSwaggerGen();
+            builder.Services.AddSwaggerGen(setup =>
+            {
+                var jwtSecurityScheme = new OpenApiSecurityScheme
+                {
+                    Scheme = "Bearer",
+                    BearerFormat = "JWT",
+                    Name = "JWT Authentication",
+                    In = ParameterLocation.Header,
+                    Type = SecuritySchemeType.Http,
+                    Description = "Put **_ONLY_** your JWT Bearer token on textbox below!",
+
+                    Reference = new OpenApiReference
+                    {
+                        Id = JwtBearerDefaults.AuthenticationScheme,
+                        Type = ReferenceType.SecurityScheme
+                    }
+                };
+
+                setup.AddSecurityDefinition(jwtSecurityScheme.Reference.Id, jwtSecurityScheme);
+
+                setup.OperationFilter<SwaggerSecurityScheme>();
+
+                setup.SwaggerDoc("v1", new OpenApiInfo
+                {
+                    Version = "v1",
+                    Title = "Gift Certificates Info API",
+                    Description = "Simple service to get info about valid gift certificates",
+                    Contact = new OpenApiContact
+                    {
+                        Name = "Andrey Borodavko",
+                        Email = "a.borodavko@21vek.by"
+                    }
+                });
+
+                var xmlFilename = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+                setup.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, xmlFilename));
+            });
 
             builder.Logging.AddProvider(
                 new HttpLoggerProvider(
@@ -88,13 +131,19 @@ namespace GiftCertificateService
             // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())
             {
-                app.UseSwagger();
-                app.UseSwaggerUI();
+                
             }
             else
             {
                 app.UseHsts();
             }
+
+            app.UseSwagger();
+            app.UseSwaggerUI(options =>
+            {
+                options.SwaggerEndpoint("./v1/swagger.json", "v1");
+                //options.RoutePrefix = string.Empty;
+            });
 
             app.UseHttpsRedirection();
 
