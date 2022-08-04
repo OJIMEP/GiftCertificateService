@@ -212,6 +212,7 @@ namespace GiftCertificateService.Controllers
                 AuthenticatedUser = User.Identity.Name,
                 LoadBalancingExecution = watch.ElapsedMilliseconds
             };
+            watch.Reset();
 
             logElement.AdditionalData.Add("Referer", Request.Headers["Referer"].ToString());
             logElement.AdditionalData.Add("User-Agent", Request.Headers["User-Agent"].ToString());
@@ -287,7 +288,8 @@ namespace GiftCertificateService.Controllers
                 logElement.ErrorDescription = ex.Message;
                 logElement.Status = "Error";
             }
-
+            watch.Stop();
+            logElement.TimeSQLExecutionFact = watch.ElapsedMilliseconds;
             conn.Close();
 
             var logstringElement = JsonSerializer.Serialize(logElement);
