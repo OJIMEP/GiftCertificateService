@@ -297,14 +297,5 @@ namespace GiftCertificateService.Controllers
             _logger.LogInformation(logstringElement);
             return result;
         }
-
-        [Authorize]
-        [Route("CertLowcase")]
-        [HttpPost]
-        public async Task<IActionResult> GetCertLowcase([FromBody] List<string> barcodes)
-        {
-            var barcodesLowcase = barcodes.Select(x => x.ToLowerInvariant()).Distinct().ToList();
-            return Ok(barcodesLowcase.ToArray());
-        }
     }
 }
