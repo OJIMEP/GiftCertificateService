@@ -61,7 +61,7 @@ namespace GiftCertificateService.Controllers
                 barcode
             };
 
-            return await GetInfoByListAsync(barcodesList);
+            return await GetInfoByListAsync(barcodesList, true);
         }
 
         /// <summary>
@@ -92,7 +92,7 @@ namespace GiftCertificateService.Controllers
             return await GetInfoByListAsync(barcode);
         }
 
-        private async Task<IActionResult> GetInfoByListAsync(List<string> barcodeList)
+        private async Task<IActionResult> GetInfoByListAsync(List<string> barcodeList, bool single = false)
         {
             var validationResult = _validatorMultiple.Validate(barcodeList);
 
@@ -123,7 +123,14 @@ namespace GiftCertificateService.Controllers
                 return BadRequest(new ResponseError { Error = "Certs aren't valid" });
             }
 
-            return Ok(result.ToArray());
+            if (single)
+            {
+                return Ok(result.First());
+            }
+            else
+            {
+                return Ok(result.ToArray());
+            }
         }
 
         private async Task<List<ResponseCertGet>?> GetInfoFromDatabaseByListAsync(List<string> barcodes)
