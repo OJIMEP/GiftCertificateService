@@ -18,18 +18,15 @@ namespace GiftCertificateService.Controllers
     {
         private readonly ILogger<GiftCertController> _logger;
         private readonly ILoadBalancing _loadBalacing;
-        private readonly IValidator<string> _validatorSingle;
         private readonly IValidator<List<string>> _validatorMultiple;
 
         public GiftCertController(ILogger<GiftCertController> logger,
                                   ILoadBalancing loadBalacing,
-                                  IValidator<List<string>> validatorMultiple,
-                                  IValidator<string> validatorSingle)
+                                  IValidator<List<string>> validatorMultiple)
         {
             _logger = logger;
             _loadBalacing = loadBalacing;
             _validatorMultiple = validatorMultiple;
-            _validatorSingle = validatorSingle;
         }
 
         /// <summary>
@@ -56,41 +53,12 @@ namespace GiftCertificateService.Controllers
         [ProducesResponseType(typeof(ResponseError), 500)]
         public async Task<IActionResult> GetInfoAsync(string barcode)
         {
-            var validationResult = _validatorSingle.Validate(barcode);
-            
-            if (!validationResult.IsValid)
-            {
-                return BadRequest(new ResponseError { Error = validationResult.ToString() });
-            }
-
-            List<ResponseCertGet>? result;
-
             var barcodesList = new List<string>
             {
                 barcode
             };
 
-            try
-            {
-                result = await GetCertInfoByBarcodes(barcodesList);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, ex.Message);
-                return StatusCode(500, new ResponseError { Error = "Internal server error" });
-            }
-
-            if (result is null)
-            {
-                return StatusCode(500, new ResponseError { Error = "Internal server error" });
-            }
-
-            if (result.Count == 0)
-            {
-                return BadRequest(new ResponseError { Error = "Certs aren't valid"});
-            }
-
-            return Ok(result.First());
+            return await GetInfoByListAsync(barcodesList, true);
         }
 
         /// <summary>
@@ -118,8 +86,12 @@ namespace GiftCertificateService.Controllers
         [ProducesResponseType(typeof(ResponseError), 500)]
         public async Task<IActionResult> GetInfoMultipleAsync([FromBody]List<string> barcode)
         {
+            return await GetInfoByListAsync(barcode);
+        }
 
-            var validationResult = _validatorMultiple.Validate(barcode);
+        private async Task<IActionResult> GetInfoByListAsync(List<string> barcodeList, bool single = false)
+        {
+            var validationResult = _validatorMultiple.Validate(barcodeList);
 
             if (!validationResult.IsValid)
             {
@@ -130,17 +102,17 @@ namespace GiftCertificateService.Controllers
 
             try
             {
-                result = await GetCertInfoByBarcodes(barcode);
+                result = await GetInfoFromDatabaseByListAsync(barcodeList);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, ex.Message);
-                return StatusCode(500, new ResponseError{ Error = "Internal server error" });
+                return StatusCode(500, new ResponseError { Error = "Internal server error" });
             }
 
             if (result is null)
             {
-                return StatusCode(500, new { error = "Internal server error" });
+                return StatusCode(500, new ResponseError { Error = "Internal server error" });
             }
 
             if (result.Count == 0)
@@ -148,17 +120,23 @@ namespace GiftCertificateService.Controllers
                 return BadRequest(new ResponseError { Error = "Certs aren't valid" });
             }
 
-            return Ok(result.ToArray());
+            if (single)
+            {
+                return Ok(result.First());
+            }
+            else
+            {
+                return Ok(result.ToArray());
+            }
         }
 
-        private async Task<List<ResponseCertGet>?> GetCertInfoByBarcodes(List<string> barcodes)
-        {
-            
+        private async Task<List<ResponseCertGet>?> GetInfoFromDatabaseByListAsync(List<string> barcodes)
+        {           
             var barcodesUpperCase = barcodes.Select(x => x.ToUpperInvariant()).Distinct().ToList();
 
             var logElementLoadBal = new ElasticLogElement
             {
-                Path = HttpContext.Request.Path.ToString()+"("+ HttpContext.Request.Method+")",
+                Path = $"{HttpContext.Request.Path}({HttpContext.Request.Method})",
                 Host = HttpContext.Request.Host.ToString(),
                 RequestContent = JsonSerializer.Serialize(barcodes),
                 Id = Guid.NewGuid().ToString(),
@@ -172,8 +150,7 @@ namespace GiftCertificateService.Controllers
             {
                 //connString = await _loadBalacing.GetDatabaseConnectionAsync();
                 var dbConnection = await _loadBalacing.GetDatabaseConnectionAsync();
-                conn = dbConnection.Connection;
-               
+                conn = dbConnection.Connection;       
             }
             catch (Exception ex)
             {
@@ -187,7 +164,6 @@ namespace GiftCertificateService.Controllers
             }
             watch.Stop();
 
-
             if (conn == null)
             {
                 logElementLoadBal.TimeSQLExecution = 0;
@@ -196,15 +172,12 @@ namespace GiftCertificateService.Controllers
                 logElementLoadBal.LoadBalancingExecution = watch.ElapsedMilliseconds;
                 var logstringElement1 = JsonSerializer.Serialize(logElementLoadBal);
                 _logger.LogInformation(logstringElement1);
-
                 return null;
             }
 
-            
-
             var logElement = new ElasticLogElement
             {
-                Path = HttpContext.Request.Path.ToString() + "(" + HttpContext.Request.Method + ")",
+                Path = $"{HttpContext.Request.Path}({HttpContext.Request.Method})",
                 Host = HttpContext.Request.Host.ToString(),
                 RequestContent = JsonSerializer.Serialize(barcodes),
                 Id = Guid.NewGuid().ToString(),
@@ -212,6 +185,7 @@ namespace GiftCertificateService.Controllers
                 AuthenticatedUser = User.Identity.Name,
                 LoadBalancingExecution = watch.ElapsedMilliseconds
             };
+
             watch.Reset();
 
             logElement.AdditionalData.Add("Referer", Request.Headers["Referer"].ToString());
@@ -224,7 +198,6 @@ namespace GiftCertificateService.Controllers
             watch.Start();
             try
             {
-
                 conn.StatisticsEnabled = true;
 
                 string query = Queries.CertInfo;
@@ -237,7 +210,7 @@ namespace GiftCertificateService.Controllers
                 List<string> barcodeParameters = new();
                 foreach (var barcode in barcodesUpperCase)
                 {
-                    var parameterString = string.Format("@PickupPointAll{0}", barcodesUpperCase.IndexOf(barcode));
+                    var parameterString = $"@Barcode{barcodesUpperCase.IndexOf(barcode)}";
                     barcodeParameters.Add(parameterString);
                     cmd.Parameters.Add(parameterString, SqlDbType.NVarChar, 12);
                     cmd.Parameters[parameterString].Value = barcode;
