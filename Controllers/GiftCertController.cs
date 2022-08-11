@@ -18,18 +18,15 @@ namespace GiftCertificateService.Controllers
     {
         private readonly ILogger<GiftCertController> _logger;
         private readonly ILoadBalancing _loadBalacing;
-        private readonly IValidator<string> _validatorSingle;
         private readonly IValidator<List<string>> _validatorMultiple;
 
         public GiftCertController(ILogger<GiftCertController> logger,
                                   ILoadBalancing loadBalacing,
-                                  IValidator<List<string>> validatorMultiple,
-                                  IValidator<string> validatorSingle)
+                                  IValidator<List<string>> validatorMultiple)
         {
             _logger = logger;
             _loadBalacing = loadBalacing;
             _validatorMultiple = validatorMultiple;
-            _validatorSingle = validatorSingle;
         }
 
         /// <summary>
@@ -139,7 +136,7 @@ namespace GiftCertificateService.Controllers
 
             var logElementLoadBal = new ElasticLogElement
             {
-                Path = $"{HttpContext.Request.Path.ToString()}({HttpContext.Request.Method})",
+                Path = $"{HttpContext.Request.Path}({HttpContext.Request.Method})",
                 Host = HttpContext.Request.Host.ToString(),
                 RequestContent = JsonSerializer.Serialize(barcodes),
                 Id = Guid.NewGuid().ToString(),
@@ -180,7 +177,7 @@ namespace GiftCertificateService.Controllers
 
             var logElement = new ElasticLogElement
             {
-                Path = $"{HttpContext.Request.Path.ToString()}({HttpContext.Request.Method})",
+                Path = $"{HttpContext.Request.Path}({HttpContext.Request.Method})",
                 Host = HttpContext.Request.Host.ToString(),
                 RequestContent = JsonSerializer.Serialize(barcodes),
                 Id = Guid.NewGuid().ToString(),
