@@ -1,5 +1,5 @@
 ﻿using FluentValidation;
-using FluentValidation.AspNetCore;
+//using FluentValidation.AspNetCore;
 using GiftCertificateService.Data;
 using GiftCertificateService.Logging;
 using GiftCertificateService.Models;
@@ -17,15 +17,22 @@ namespace GiftCertificateService.Controllers
     public class GiftCertController : ControllerBase
     {
         private readonly ILogger<GiftCertController> _logger;
-        private readonly ILoadBalancing _loadBalacing;
+        private readonly ILoadBalancing _loadBalancing;
         private readonly IValidator<List<string>> _validatorMultiple;
+
+        class DBConnectionNotFoundException : SystemException
+        {
+            public DBConnectionNotFoundException(string message) : base(message)
+            {
+            }
+        }
 
         public GiftCertController(ILogger<GiftCertController> logger,
                                   ILoadBalancing loadBalacing,
                                   IValidator<List<string>> validatorMultiple)
         {
             _logger = logger;
-            _loadBalacing = loadBalacing;
+            _loadBalancing = loadBalacing;
             _validatorMultiple = validatorMultiple;
         }
 
@@ -104,6 +111,10 @@ namespace GiftCertificateService.Controllers
             {
                 result = await GetInfoFromDatabaseByListAsync(barcodeList);
             }
+            catch (DBConnectionNotFoundException)
+            {
+                return StatusCode(500, new ResponseError { Error = "Available database connection not found" });
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, ex.Message);
@@ -132,142 +143,138 @@ namespace GiftCertificateService.Controllers
 
         private async Task<List<ResponseCertGet>?> GetInfoFromDatabaseByListAsync(List<string> barcodes)
         {           
-            var barcodesUpperCase = barcodes.Select(x => x.ToUpperInvariant()).Distinct().ToList();
+            var barcodesUpperCase = barcodes.Select(x => x.ToUpper()).Distinct().ToList();
 
-            var logElementLoadBal = new ElasticLogElement
-            {
-                Path = $"{HttpContext.Request.Path}({HttpContext.Request.Method})",
-                Host = HttpContext.Request.Host.ToString(),
-                RequestContent = JsonSerializer.Serialize(barcodes),
-                Id = Guid.NewGuid().ToString(),
-                AuthenticatedUser = User.Identity.Name
-            };
+            var logElement = InitElasticLogElement();
+            logElement.RequestContent = JsonSerializer.Serialize(new { request = JsonSerializer.Serialize(barcodes) });
 
-            SqlConnection conn;
-            Stopwatch watch = new();
-            watch.Start();
-            try
-            {
-                //connString = await _loadBalacing.GetDatabaseConnectionAsync();
-                var dbConnection = await _loadBalacing.GetDatabaseConnectionAsync();
-                conn = dbConnection.Connection;       
-            }
-            catch (Exception ex)
-            {
-                //connString = "";
-                logElementLoadBal.TimeSQLExecution = 0;
-                logElementLoadBal.ErrorDescription = ex.Message;
-                logElementLoadBal.Status = "Error";
-                var logstringElement1 = JsonSerializer.Serialize(logElementLoadBal);
-                _logger.LogInformation(logstringElement1);
-                return null;
-            }
-            watch.Stop();
+            DbConnection dbConnection = await GetDatabaseConnection(logElement);
 
-            if (conn == null)
-            {
-                logElementLoadBal.TimeSQLExecution = 0;
-                logElementLoadBal.ErrorDescription = "Не найдено доступное соединение к БД";
-                logElementLoadBal.Status = "Error";
-                logElementLoadBal.LoadBalancingExecution = watch.ElapsedMilliseconds;
-                var logstringElement1 = JsonSerializer.Serialize(logElementLoadBal);
-                _logger.LogInformation(logstringElement1);
-                return null;
-            }
-
-            var logElement = new ElasticLogElement
-            {
-                Path = $"{HttpContext.Request.Path}({HttpContext.Request.Method})",
-                Host = HttpContext.Request.Host.ToString(),
-                RequestContent = JsonSerializer.Serialize(barcodes),
-                Id = Guid.NewGuid().ToString(),
-                DatabaseConnection = LoadBalancing.RemoveCredentialsFromConnectionString(conn.ConnectionString),
-                AuthenticatedUser = User.Identity.Name,
-                LoadBalancingExecution = watch.ElapsedMilliseconds
-            };
-
-            watch.Reset();
-
-            logElement.AdditionalData.Add("Referer", Request.Headers["Referer"].ToString());
-            logElement.AdditionalData.Add("User-Agent", Request.Headers["User-Agent"].ToString());
-            logElement.AdditionalData.Add("RemoteIpAddress", Request.HttpContext.Connection.RemoteIpAddress.ToString());
+            SqlConnection sqlConnection = dbConnection.Connection!;
 
             var result = new List<ResponseCertGet>();
 
             long sqlCommandExecutionTime = 0;
+
+            Stopwatch watch = new();
             watch.Start();
             try
             {
-                conn.StatisticsEnabled = true;
-
-                string query = Queries.CertInfo;
-
-                var DateMove = DateTime.Now.AddMonths(24000);
-
-                //define the SqlCommand object
-                SqlCommand cmd = new(query, conn);
-
-                List<string> barcodeParameters = new();
-                foreach (var barcode in barcodesUpperCase)
-                {
-                    var parameterString = $"@Barcode{barcodesUpperCase.IndexOf(barcode)}";
-                    barcodeParameters.Add(parameterString);
-                    cmd.Parameters.Add(parameterString, SqlDbType.NVarChar, 12);
-                    cmd.Parameters[parameterString].Value = barcode;
-                }
-
-                query = query.Replace("@Barcode", String.Join(",", barcodeParameters));
-
-                cmd.CommandTimeout = 5;
-
-                cmd.CommandText = query;
+                sqlConnection.StatisticsEnabled = true;
 
                 //execute the SQLCommand
-                SqlDataReader dr = cmd.ExecuteReader();
+                SqlDataReader dataReader = await GetSqlCommandCertInfo(sqlConnection, barcodesUpperCase).ExecuteReaderAsync();
 
-                //check if there are records
-                if (dr.HasRows)
+                while (dataReader.Read())
                 {
-                    while (dr.Read())
+                    var dbBarcode = dataReader.GetString(0);
+
+                    result.Add(new ResponseCertGet
                     {
-                        var dbBarcode = dr.GetString(0);
-
-                        var incomeBarcode = barcodes.Find(x => x.ToUpperInvariant() == dbBarcode); //in case of low characters
-
-                        var resultItem = new ResponseCertGet
-                        {
-                            Barcode = incomeBarcode ?? dbBarcode,
-                            Sum = dr.GetDecimal(1)
-                        };
-
-                        result.Add(resultItem);
-                    }
+                        Barcode = barcodes.Find(x => x.ToUpper() == dbBarcode) ?? dbBarcode,
+                        Sum = dataReader.GetDecimal(1)
+                    });
                 }
 
-                var stats = conn.RetrieveStatistics();
-                sqlCommandExecutionTime = (long)stats["ExecutionTime"];
+                var stats = sqlConnection.RetrieveStatistics();
+                sqlCommandExecutionTime = (long)stats["ExecutionTime"]!;
 
                 //close data reader
-                dr.Close();
+                dataReader.Close();
 
                 logElement.TimeSQLExecution = sqlCommandExecutionTime;
-                logElement.ResponseContent = JsonSerializer.Serialize(result);
-                logElement.Status = "Ok";
+                logElement.ResponseContent = JsonSerializer.Serialize(new { response = JsonSerializer.Serialize(result) });
                 logElement.AdditionalData.Add("stats", JsonSerializer.Serialize(stats));
             }
             catch (Exception ex)
             {
-                logElement.TimeSQLExecution = sqlCommandExecutionTime;
-                logElement.ErrorDescription = ex.Message;
-                logElement.Status = "Error";
+                logElement.SetError(ex.Message);
             }
             watch.Stop();
             logElement.TimeSQLExecutionFact = watch.ElapsedMilliseconds;
-            conn.Close();
+            sqlConnection.Close();
+            
+            _logger.LogInformation(JsonSerializer.Serialize(logElement));
 
-            var logstringElement = JsonSerializer.Serialize(logElement);
+            return result;
+        }
 
-            _logger.LogInformation(logstringElement);
+        private async Task<DbConnection> GetDatabaseConnection(ElasticLogElement logElement)
+        {
+            bool loadBalancingError = false;
+            string loadBalancingErrorDescription = string.Empty;
+
+            DbConnection dbConnection = new();
+
+            Stopwatch watch = new();
+            watch.Start();
+            try
+            {
+                dbConnection = await _loadBalancing.GetDatabaseConnectionAsync();
+            }
+            catch (Exception ex)
+            {
+                loadBalancingError = true;
+                loadBalancingErrorDescription = ex.Message;
+            }
+            watch.Stop();
+
+            if (!loadBalancingError && dbConnection.Connection == null)
+            {
+                loadBalancingError = true;
+                loadBalancingErrorDescription = "Не найдено доступное соединение к БД";
+            }
+            
+            logElement.LoadBalancingExecution = watch.ElapsedMilliseconds;
+            logElement.DatabaseConnection = dbConnection.ConnectionWithoutCredentials;
+
+            if (loadBalancingError)
+            {
+                logElement.SetError(loadBalancingErrorDescription);
+                _logger.LogInformation(JsonSerializer.Serialize(logElement));
+                throw new DBConnectionNotFoundException(loadBalancingErrorDescription);
+            }
+
+            return dbConnection;
+        }
+
+        private static SqlCommand GetSqlCommandCertInfo(SqlConnection connection, List<string> barcodesUpperCase)
+        {
+            //define the SqlCommand object
+            SqlCommand command = new()
+            {
+                Connection = connection,
+                CommandTimeout = 5
+            };
+
+            List<string> barcodeParameters = new();
+            for (int i = 0; i < barcodesUpperCase.Count; i++)
+            {
+                var parameterString = $"@Barcode{i}";
+                barcodeParameters.Add(parameterString);
+                command.Parameters.Add(parameterString, SqlDbType.NVarChar, 12);
+                command.Parameters[parameterString].Value = barcodesUpperCase[i];
+            }
+
+            command.CommandText = Queries.CertInfo.Replace("@Barcode", string.Join(",", barcodeParameters));
+
+            return command;
+        }
+
+        private ElasticLogElement InitElasticLogElement()
+        {
+            ElasticLogElement result = new(LogStatus.Ok)
+            {
+                Path = $"{HttpContext.Request.Path}({HttpContext.Request.Method})",
+                Host = HttpContext.Request.Host.ToString(),
+                Id = Guid.NewGuid().ToString(),
+                AuthenticatedUser = User?.Identity?.Name
+            };
+
+            result.AdditionalData.Add("Referer", Request.Headers["Referer"].ToString());
+            result.AdditionalData.Add("User-Agent", Request.Headers["User-Agent"].ToString());
+            result.AdditionalData.Add("RemoteIpAddress", Request?.HttpContext?.Connection?.RemoteIpAddress?.ToString());
+
             return result;
         }
     }

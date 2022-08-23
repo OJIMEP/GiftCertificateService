@@ -21,36 +21,29 @@ namespace GiftCertificateService.Logging
             httpClient = new HttpClient();
             EnviromentStatic.Enviroment = _env;
         }
-        public IDisposable BeginScope<TState>(TState state)
-        {
-            return null;
-        }
+        public IDisposable BeginScope<TState>(TState state) => default!;
 
         public bool IsEnabled(LogLevel logLevel)
         {
-            //return logLevel == LogLevel.Trace;
             return true;
         }
 
-        public async void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception, Func<TState, Exception, string> formatter)
+        public async void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
         {
             if (formatter != null)
             {
-
                 var logMessage = new ElasticLogMessage();
                 if (!formatter(state, exception).Contains("ResponseContent"))
                 {
-                    var logElement = new ElasticLogElement
+                    var logElement = new ElasticLogElement(LogStatus.Info)
                     {
                         TimeSQLExecution = 0,
                         ErrorDescription = formatter(state, exception),
-                        Status = "Info"
                     };
 
                     if (exception != null)
                     {
-                        logElement.ErrorDescription += ";" + exception.Message;
-                        logElement.Status = "Error";
+                        logElement.SetError(exception.Message);
                         logElement.AdditionalData.Add("StackTrace", exception.StackTrace);
                     }
 
@@ -62,7 +55,6 @@ namespace GiftCertificateService.Logging
                     logMessage.Message.Add(formatter(state, exception));
                 }
 
-
                 var resultLog = JsonSerializer.Serialize(logMessage);
 
                 byte[] sendBytes = Encoding.UTF8.GetBytes(resultLog);
@@ -71,7 +63,10 @@ namespace GiftCertificateService.Logging
                 {
                     if (sendBytes.Length > 60000)
                     {
-                        var result = await httpClient.PostAsync(new Uri("http://" + logsHost + ":" + logsPortHttp.ToString("D")), new StringContent(resultLog, Encoding.UTF8, "application/json"));
+                        var result = await httpClient.PostAsync(
+                            new Uri($"http://{logsHost}:{logsPortHttp:D}"), 
+                            new StringContent(resultLog, Encoding.UTF8, "application/json")
+                        );
                     }
                     else
                         await udpClient.SendAsync(sendBytes, sendBytes.Length);
@@ -80,10 +75,7 @@ namespace GiftCertificateService.Logging
                 {
                     Console.WriteLine(e.ToString());
                 }
-
-
             }
-
         }
     }
 }

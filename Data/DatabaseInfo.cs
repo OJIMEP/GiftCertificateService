@@ -2,9 +2,7 @@
 {
     public class DatabaseInfo : DatabaseConnectionParameter, ICloneable
     {
-
         public string ConnectionWithoutCredentials { get; set; }
-
         public bool AvailableToUse { get; set; }
         public DateTimeOffset LastFreeProcCacheCommand { get; set; }
         public DateTimeOffset LastCheckAvailability { get; set; }
@@ -15,15 +13,27 @@
         public bool CustomAggregationsAvailable { get; set; }
         public int CustomAggsFailCount { get; set; }
         public int TimeCriteriaFailCount { get; set; }
-
+        public DatabaseType DatabaseType { get; set; }  
 
         public DatabaseInfo(DatabaseConnectionParameter connectionParameter)
         {
             Connection = connectionParameter.Connection;
-            ConnectionWithoutCredentials = LoadBalancing.RemoveCredentialsFromConnectionString(connectionParameter.Connection);
+            ConnectionWithoutCredentials = RemoveCredentialsFromConnectionString(Connection);
             Priority = connectionParameter.Priority;
-            Type = connectionParameter.Type;
             ActualPriority = connectionParameter.Priority;
+
+            switch (connectionParameter.Type)
+            {
+                case "main":
+                    DatabaseType = DatabaseType.Main;
+                    break;
+                case "replica_full":
+                    DatabaseType = DatabaseType.ReplicaFull;
+                    break;
+                case "replica_tables":
+                    DatabaseType = DatabaseType.ReplicaTables;
+                    break;
+            }
         }
 
         public object Clone()
@@ -39,11 +49,18 @@
                 ExistsInFile = ExistsInFile,
                 CustomAggregationsAvailable = CustomAggregationsAvailable,
                 CustomAggsFailCount = CustomAggsFailCount,
-                TimeCriteriaFailCount = TimeCriteriaFailCount
+                TimeCriteriaFailCount = TimeCriteriaFailCount,
+                DatabaseType = DatabaseType
             };
 
             return result;
+        }
 
+        private static string RemoveCredentialsFromConnectionString(string connectionString)
+        {
+            return string.Join(";",
+                connectionString.Split(";")
+                    .Where(item => !item.Contains("Uid") && !item.Contains("User") && !item.Contains("Pwd") && !item.Contains("Password") && item.Length > 0));
         }
     }
 

@@ -19,18 +19,13 @@ namespace GiftCertificateService.Data
         {
             _configuration = configuration;
             _logger = logger;
-            //_databaseService = databaseService;
         }
 
         public async Task<DbConnection> GetDatabaseConnectionAsync()
         {
-            //string connString = _configuration.GetConnectionString("1CDataSqlConnection");
-
             var result = new DbConnection();
 
             var connectionParameters = _configuration.GetSection("OneSDatabases").Get<List<DatabaseConnectionParameter>>().Select(x => new DatabaseInfo(x));
-
-            //connectionParameters = _databaseService.GetAllDatabases();
 
             var timeMS = DateTime.Now.Millisecond % 100;
 
@@ -40,59 +35,34 @@ namespace GiftCertificateService.Data
 
             var resultString = "";
 
-            //SqlConnection resultConnection = null;
-            SqlConnection conn = null;
+            SqlConnection? conn = null;
 
             while (true)
             {
                 int percentCounter = 0;
                 foreach (var connParametr in connectionParameters)
                 {
-
                     if (firstAvailable && failedConnections.Contains(connParametr.Connection))
                         continue;
-
-                    //if (!connParametr.AvailableToUse)
-                    //    continue;
 
                     Stopwatch watch = new();
                     percentCounter += connParametr.Priority;
                     if (timeMS <= percentCounter && connParametr.Priority != 0 || firstAvailable)
+                    {
                         try
                         {
-                            var queryStringCheck = "";
-                            if (connParametr.Type == "main")
-                                queryStringCheck = Queries.DatebaseBalancingMain;
-
-                            if (connParametr.Type == "replica_full")
-                                queryStringCheck = Queries.DatebaseBalancingReplicaFull;
-
-                            if (connParametr.Type == "replica_tables")
-                                queryStringCheck = Queries.DatebaseBalancingReplicaTables;
-
-
                             watch.Start();
-                            //sql connection object
-                            conn = new(connParametr.Connection);
 
+                            conn = await GetConnectionByDatabaseInfo(connParametr);
 
-                            conn.Open();
-
-                            SqlCommand cmd = new(queryStringCheck, conn);
-
-                            cmd.CommandTimeout = 1;
-
-                            SqlDataReader dr = await cmd.ExecuteReaderAsync();
-
-                            dr.Close();
                             watch.Stop();
 
-                            //close connection
-                            //conn.Close();
-                            result.Connection = conn;
                             resultString = connParametr.Connection;
-                            result.DatabaseType = connParametr.Type;
+                            
+                            result.Connection = conn;
+                            result.DatabaseType = connParametr.DatabaseType;
                             result.UseAggregations = connParametr.CustomAggregationsAvailable;
+                            result.ConnectionWithoutCredentials = connParametr.ConnectionWithoutCredentials;
                             break;
                         }
                         catch (Exception ex)
@@ -102,26 +72,25 @@ namespace GiftCertificateService.Data
                                 watch.Stop();
                             }
 
-                            var logElement = new ElasticLogElement
+                            var logElement = new ElasticLogElement(LogStatus.Error)
                             {
-                                LoadBalancingExecution = watch.ElapsedMilliseconds,
                                 ErrorDescription = ex.Message,
-                                Status = "Error",
-                                DatabaseConnection = LoadBalancing.RemoveCredentialsFromConnectionString(connParametr.Connection)
+                                LoadBalancingExecution = watch.ElapsedMilliseconds,
+                                DatabaseConnection = connParametr.ConnectionWithoutCredentials
                             };
 
-                            var logstringElement = JsonSerializer.Serialize(logElement);
-
-                            _logger.LogInformation(logstringElement);
+                            _logger.LogInformation(JsonSerializer.Serialize(logElement));
 
                             if (conn != null && conn.State != System.Data.ConnectionState.Closed)
                             {
-                                conn.Close();
+                                await conn.CloseAsync();
                             }
 
                             failedConnections.Add(connParametr.Connection);
                         }
+                    }
                 }
+
                 if (resultString.Length > 0 || firstAvailable)
                     break;
                 else
@@ -131,39 +100,32 @@ namespace GiftCertificateService.Data
             return result;
         }
 
-        public static string RemoveCredentialsFromConnectionString(string connectionString)
+        private static async Task<SqlConnection?> GetConnectionByDatabaseInfo(DatabaseInfo databaseInfo)
         {
-            var connStringParts = connectionString.Split(";");
+            var queryStringCheck = "";
+            if (databaseInfo.DatabaseType == DatabaseType.Main)
+                queryStringCheck = Queries.DatebaseBalancingMain;
 
-            var resultString = "";
+            if (databaseInfo.DatabaseType == DatabaseType.ReplicaFull)
+                queryStringCheck = Queries.DatebaseBalancingReplicaFull;
 
-            foreach (var item in connStringParts)
+            if (databaseInfo.DatabaseType == DatabaseType.ReplicaTables)
+                queryStringCheck = Queries.DatebaseBalancingReplicaTables;
+
+            //sql connection object
+            SqlConnection connection = new(databaseInfo.Connection);
+            await connection.OpenAsync();
+
+            SqlCommand cmd = new(queryStringCheck, connection)
             {
-                if (!item.Contains("Uid") && !item.Contains("User") && !item.Contains("Pwd") && !item.Contains("Password") && item.Length > 0)
-                    resultString += item + ";";
-            }
+                CommandTimeout = 1
+            };
 
-            return resultString;
+            SqlDataReader dr = await cmd.ExecuteReaderAsync();
+
+            await dr.CloseAsync();
+
+            return connection;
         }
-
     }
-
-
-
-    public class DatabaseConnectionParameter
-    {
-        public string Connection { get; set; }
-        public int Priority { get; set; }
-        public string Type { get; set; } //main, replica_full, replica_tables 
-
-    }
-
-    public class DbConnection
-    {
-        public SqlConnection Connection { get; set; }
-        public string DatabaseType { get; set; }
-        public bool UseAggregations { get; set; }
-    }
-
-
 }

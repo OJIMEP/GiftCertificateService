@@ -2,7 +2,7 @@
 {
     public static class Queries
     {
-        public static string CertInfo = @"SELECT
+        public static string CertInfo { get; } = @"SELECT
 	[_IDRRef],
 	[_Fld4242] 
 Into #Temp_CertRef
