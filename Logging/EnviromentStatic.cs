@@ -2,6 +2,6 @@
 {
     public static class EnviromentStatic
     {
-        public static string Enviroment { get; set; }
+        public static string? Enviroment { get; set; }
     }
 }

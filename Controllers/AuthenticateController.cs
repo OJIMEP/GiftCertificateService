@@ -33,14 +33,10 @@ namespace GiftCertificateService.Controllers
             var user = await userManager.FindByNameAsync(model.Username);
             if (user != null && await userManager.CheckPasswordAsync(user, model.Password))
             {
-
-
                 var response = await _userService.AuthenticateAsync(model, IpAddress());
 
                 if (response == null)
                     return BadRequest();
-
-                //setTokenCookie(response.RefreshToken);
 
                 return Ok(new
                 {
@@ -53,6 +49,7 @@ namespace GiftCertificateService.Controllers
             return Unauthorized();
         }
 
+
         [HttpPost("refresh-token")]
         public async Task<IActionResult> RefreshTokenAsync([FromBody] RefreshTokenModel model)
         {
@@ -62,8 +59,6 @@ namespace GiftCertificateService.Controllers
             if (response == null)
                 return Unauthorized(new { message = "Invalid token" });
 
-            //setTokenCookie(response.RefreshToken);
-
             return Ok(new
             {
                 token = response.JwtToken,
@@ -72,6 +67,7 @@ namespace GiftCertificateService.Controllers
                 expiration_refresh = response.RefreshValidTo
             });
         }
+
 
         [HttpPost("revoke-token")]
         public IActionResult RevokeToken([FromBody] RefreshTokenModel model)
@@ -162,6 +158,7 @@ namespace GiftCertificateService.Controllers
             return Ok(new Response { Status = "Success", Message = "Password changed password successfully!" });
         }
 
+
         [Authorize(Roles = UserRoles.Admin)]
         [HttpPost]
         [Route("modify-roles")]
@@ -196,6 +193,7 @@ namespace GiftCertificateService.Controllers
             return Ok(new Response { Status = "Success", Message = "Added roles: " + string.Join(", ", successAddRoles) + ", deleted roles: " + string.Join(", ", successDeleteRoles) });
         }
 
+
         [Authorize(Roles = UserRoles.Admin)]
         [HttpGet]
         [Route("available-roles")]
@@ -210,7 +208,7 @@ namespace GiftCertificateService.Controllers
             if (Request.Headers.ContainsKey("X-Forwarded-For"))
                 return Request.Headers["X-Forwarded-For"];
             else
-                return HttpContext.Connection.RemoteIpAddress.MapToIPv4().ToString();
+                return HttpContext?.Connection?.RemoteIpAddress?.MapToIPv4().ToString() ?? "";
         }
     }
 }

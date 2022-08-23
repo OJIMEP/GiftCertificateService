@@ -11,11 +11,11 @@ namespace GiftCertificateService.Filters
         {
             bool IsAllowAnonymousMethod = context.MethodInfo.GetCustomAttributes(true).Any(x => x is AllowAnonymousAttribute);
 
-            bool IsAllowAnonymousController = context.MethodInfo.DeclaringType.GetCustomAttributes(true).Any(x => x is AllowAnonymousAttribute);
+            bool IsAllowAnonymousController = context.MethodInfo.DeclaringType?.GetCustomAttributes(true).Any(x => x is AllowAnonymousAttribute) ?? false;
 
             bool IsAuthorizeMethod = context.MethodInfo.GetCustomAttributes(true).Any(x => x is AuthorizeAttribute);
 
-            bool IsAuthorizeController = context.MethodInfo.DeclaringType.GetCustomAttributes(true).Any(x => x is AuthorizeAttribute);
+            bool IsAuthorizeController = context.MethodInfo.DeclaringType?.GetCustomAttributes(true).Any(x => x is AuthorizeAttribute) ?? false;
 
             if (IsAuthorizeMethod || (IsAuthorizeController && !IsAllowAnonymousMethod))
             {
