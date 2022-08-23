@@ -31,7 +31,7 @@ namespace GiftCertificateService.Filters
                                     Id = JwtBearerDefaults.AuthenticationScheme,
                                     Type = ReferenceType.SecurityScheme
                                 }
-                            }, new string[] { }
+                            }, Array.Empty<string>()
                         }
                     }
                 };
