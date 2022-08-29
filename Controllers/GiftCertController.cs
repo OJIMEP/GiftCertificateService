@@ -1,16 +1,10 @@
 ﻿using FluentValidation;
-//using FluentValidation.AspNetCore;
-//using GiftCertificateService.Data;
 using GiftCertificateService.Exceptions;
 using GiftCertificateService.Logging;
 using GiftCertificateService.Models;
 using GiftCertificateService.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-//using System.Diagnostics;
-/*using Microsoft.Data.SqlClient;
-using System.Data;
-using System.Text.Json;*/
 
 namespace GiftCertificateService.Controllers
 {
@@ -19,17 +13,14 @@ namespace GiftCertificateService.Controllers
     public class GiftCertController : ControllerBase
     {
         private readonly ILogger<GiftCertController> _logger;
-        //private readonly ILoadBalancing _loadBalancing;
         private readonly IValidator<List<string>> _validatorMultiple;
         private readonly ICertService _certService;
 
         public GiftCertController(ILogger<GiftCertController> logger,
-                                  //ILoadBalancing loadBalacing,
                                   IValidator<List<string>> validatorMultiple,
                                   ICertService certService)
         {
             _logger = logger;
-            //_loadBalancing = loadBalacing;
             _validatorMultiple = validatorMultiple;
             _certService = certService;
         }
@@ -108,7 +99,7 @@ namespace GiftCertificateService.Controllers
 
             try
             {
-                var logElement = ElasticLogElement.InitElasticLogElement(HttpContext, Request);
+                var logElement = new ElasticLogElement(HttpContext, Request);
                 result = await _certService.GetCertsInfoByListAsync(barcodeList, logElement);
             }
             catch (DBConnectionNotFoundException)
@@ -117,7 +108,6 @@ namespace GiftCertificateService.Controllers
             }
             catch (Exception ex)
             {
-                //_logger.LogError(ex, ex.Message);
                 _logger.LogErrorMessage(ex.Message, ex);
                 return StatusCode(500, new ResponseError { Error = "Internal server error" });
             }

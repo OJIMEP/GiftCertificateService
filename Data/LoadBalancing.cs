@@ -79,7 +79,6 @@ namespace GiftCertificateService.Data
                                 DatabaseConnection = connParametr.ConnectionWithoutCredentials
                             };
 
-                            //_logger.LogInformation(JsonSerializer.Serialize(logElement));
                             _logger.LogMessageGen(JsonSerializer.Serialize(logElement));
 
                             if (conn != null && conn.State != System.Data.ConnectionState.Closed)
