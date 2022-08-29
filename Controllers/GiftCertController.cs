@@ -1,14 +1,16 @@
 ﻿using FluentValidation;
 //using FluentValidation.AspNetCore;
-using GiftCertificateService.Data;
+//using GiftCertificateService.Data;
+using GiftCertificateService.Exceptions;
 using GiftCertificateService.Logging;
 using GiftCertificateService.Models;
+using GiftCertificateService.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Data.SqlClient;
+//using System.Diagnostics;
+/*using Microsoft.Data.SqlClient;
 using System.Data;
-using System.Diagnostics;
-using System.Text.Json;
+using System.Text.Json;*/
 
 namespace GiftCertificateService.Controllers
 {
@@ -17,23 +19,19 @@ namespace GiftCertificateService.Controllers
     public class GiftCertController : ControllerBase
     {
         private readonly ILogger<GiftCertController> _logger;
-        private readonly ILoadBalancing _loadBalancing;
+        //private readonly ILoadBalancing _loadBalancing;
         private readonly IValidator<List<string>> _validatorMultiple;
-
-        class DBConnectionNotFoundException : SystemException
-        {
-            public DBConnectionNotFoundException(string message) : base(message)
-            {
-            }
-        }
+        private readonly ICertService _certService;
 
         public GiftCertController(ILogger<GiftCertController> logger,
-                                  ILoadBalancing loadBalacing,
-                                  IValidator<List<string>> validatorMultiple)
+                                  //ILoadBalancing loadBalacing,
+                                  IValidator<List<string>> validatorMultiple,
+                                  ICertService certService)
         {
             _logger = logger;
-            _loadBalancing = loadBalacing;
+            //_loadBalancing = loadBalacing;
             _validatorMultiple = validatorMultiple;
+            _certService = certService;
         }
 
         /// <summary>
@@ -64,7 +62,7 @@ namespace GiftCertificateService.Controllers
             {
                 barcode
             };
-
+            
             return await GetInfoByListAsync(barcodesList, true);
         }
 
@@ -93,7 +91,8 @@ namespace GiftCertificateService.Controllers
         [ProducesResponseType(typeof(ResponseError), 500)]
         public async Task<IActionResult> GetInfoMultipleAsync([FromBody]List<string> barcode)
         {
-            return await GetInfoByListAsync(barcode);
+            var result = await GetInfoByListAsync(barcode);
+            return result;
         }
 
         private async Task<IActionResult> GetInfoByListAsync(List<string> barcodeList, bool single = false)
@@ -105,11 +104,12 @@ namespace GiftCertificateService.Controllers
                 return BadRequest(new ResponseError { Error = validationResult.ToString() });
             }
 
-            List<ResponseCertGet>? result;
+            List<ResponseCertGet> result;
 
             try
             {
-                result = await GetInfoFromDatabaseByListAsync(barcodeList);
+                var logElement = ElasticLogElement.InitElasticLogElement(HttpContext, Request);
+                result = await _certService.GetCertsInfoByListAsync(barcodeList, logElement);
             }
             catch (DBConnectionNotFoundException)
             {
@@ -117,7 +117,8 @@ namespace GiftCertificateService.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, ex.Message);
+                //_logger.LogError(ex, ex.Message);
+                _logger.LogErrorMessage(ex.Message, ex);
                 return StatusCode(500, new ResponseError { Error = "Internal server error" });
             }
 
@@ -141,141 +142,5 @@ namespace GiftCertificateService.Controllers
             }
         }
 
-        private async Task<List<ResponseCertGet>?> GetInfoFromDatabaseByListAsync(List<string> barcodes)
-        {           
-            var barcodesUpperCase = barcodes.Select(x => x.ToUpper()).Distinct().ToList();
-
-            var logElement = InitElasticLogElement();
-            logElement.RequestContent = JsonSerializer.Serialize(new { request = JsonSerializer.Serialize(barcodes) });
-
-            DbConnection dbConnection = await GetDatabaseConnection(logElement);
-
-            SqlConnection sqlConnection = dbConnection.Connection!;
-
-            var result = new List<ResponseCertGet>();
-
-            long sqlCommandExecutionTime = 0;
-
-            Stopwatch watch = new();
-            watch.Start();
-            try
-            {
-                sqlConnection.StatisticsEnabled = true;
-
-                //execute the SQLCommand
-                SqlDataReader dataReader = await GetSqlCommandCertInfo(sqlConnection, barcodesUpperCase).ExecuteReaderAsync();
-
-                while (dataReader.Read())
-                {
-                    var dbBarcode = dataReader.GetString(0);
-
-                    result.Add(new ResponseCertGet
-                    {
-                        Barcode = barcodes.Find(x => x.ToUpper() == dbBarcode) ?? dbBarcode,
-                        Sum = dataReader.GetDecimal(1)
-                    });
-                }
-
-                var stats = sqlConnection.RetrieveStatistics();
-                sqlCommandExecutionTime = (long)stats["ExecutionTime"]!;
-
-                //close data reader
-                dataReader.Close();
-
-                logElement.TimeSQLExecution = sqlCommandExecutionTime;
-                logElement.ResponseContent = JsonSerializer.Serialize(new { response = JsonSerializer.Serialize(result) });
-                logElement.AdditionalData.Add("stats", JsonSerializer.Serialize(stats));
-            }
-            catch (Exception ex)
-            {
-                logElement.SetError(ex.Message);
-            }
-            watch.Stop();
-            logElement.TimeSQLExecutionFact = watch.ElapsedMilliseconds;
-            sqlConnection.Close();
-            
-            _logger.LogInformation(JsonSerializer.Serialize(logElement));
-
-            return result;
-        }
-
-        private async Task<DbConnection> GetDatabaseConnection(ElasticLogElement logElement)
-        {
-            bool loadBalancingError = false;
-            string loadBalancingErrorDescription = string.Empty;
-
-            DbConnection dbConnection = new();
-
-            Stopwatch watch = new();
-            watch.Start();
-            try
-            {
-                dbConnection = await _loadBalancing.GetDatabaseConnectionAsync();
-            }
-            catch (Exception ex)
-            {
-                loadBalancingError = true;
-                loadBalancingErrorDescription = ex.Message;
-            }
-            watch.Stop();
-
-            if (!loadBalancingError && dbConnection.Connection == null)
-            {
-                loadBalancingError = true;
-                loadBalancingErrorDescription = "Не найдено доступное соединение к БД";
-            }
-            
-            logElement.LoadBalancingExecution = watch.ElapsedMilliseconds;
-            logElement.DatabaseConnection = dbConnection.ConnectionWithoutCredentials;
-
-            if (loadBalancingError)
-            {
-                logElement.SetError(loadBalancingErrorDescription);
-                _logger.LogInformation(JsonSerializer.Serialize(logElement));
-                throw new DBConnectionNotFoundException(loadBalancingErrorDescription);
-            }
-
-            return dbConnection;
-        }
-
-        private static SqlCommand GetSqlCommandCertInfo(SqlConnection connection, List<string> barcodesUpperCase)
-        {
-            //define the SqlCommand object
-            SqlCommand command = new()
-            {
-                Connection = connection,
-                CommandTimeout = 5
-            };
-
-            List<string> barcodeParameters = new();
-            for (int i = 0; i < barcodesUpperCase.Count; i++)
-            {
-                var parameterString = $"@Barcode{i}";
-                barcodeParameters.Add(parameterString);
-                command.Parameters.Add(parameterString, SqlDbType.NVarChar, 12);
-                command.Parameters[parameterString].Value = barcodesUpperCase[i];
-            }
-
-            command.CommandText = Queries.CertInfo.Replace("@Barcode", string.Join(",", barcodeParameters));
-
-            return command;
-        }
-
-        private ElasticLogElement InitElasticLogElement()
-        {
-            ElasticLogElement result = new(LogStatus.Ok)
-            {
-                Path = $"{HttpContext.Request.Path}({HttpContext.Request.Method})",
-                Host = HttpContext.Request.Host.ToString(),
-                Id = Guid.NewGuid().ToString(),
-                AuthenticatedUser = User?.Identity?.Name
-            };
-
-            result.AdditionalData.Add("Referer", Request.Headers["Referer"].ToString());
-            result.AdditionalData.Add("User-Agent", Request.Headers["User-Agent"].ToString());
-            result.AdditionalData.Add("RemoteIpAddress", Request?.HttpContext?.Connection?.RemoteIpAddress?.ToString());
-
-            return result;
-        }
     }
 }

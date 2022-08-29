@@ -79,11 +79,12 @@ namespace GiftCertificateService.Data
                                 DatabaseConnection = connParametr.ConnectionWithoutCredentials
                             };
 
-                            _logger.LogInformation(JsonSerializer.Serialize(logElement));
+                            //_logger.LogInformation(JsonSerializer.Serialize(logElement));
+                            _logger.LogMessageGen(JsonSerializer.Serialize(logElement));
 
                             if (conn != null && conn.State != System.Data.ConnectionState.Closed)
                             {
-                                await conn.CloseAsync();
+                                _ = conn.CloseAsync();
                             }
 
                             failedConnections.Add(connParametr.Connection);
@@ -123,7 +124,7 @@ namespace GiftCertificateService.Data
 
             SqlDataReader dr = await cmd.ExecuteReaderAsync();
 
-            await dr.CloseAsync();
+            _ = dr.CloseAsync();
 
             return connection;
         }
