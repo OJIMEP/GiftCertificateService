@@ -46,5 +46,22 @@ namespace GiftCertificateService.Logging
                 ErrorDescription += $"; {errorDescription}";
             }
         }
+
+        public static ElasticLogElement InitElasticLogElement(HttpContext httpContext, HttpRequest request)
+        {
+            ElasticLogElement result = new(LogStatus.Ok)
+            {
+                Path = $"{httpContext.Request.Path}({httpContext.Request.Method})",
+                Host = httpContext.Request.Host.ToString(),
+                Id = Guid.NewGuid().ToString(),
+                AuthenticatedUser = httpContext.User?.Identity?.Name
+            };
+
+            result.AdditionalData.Add("Referer", request.Headers["Referer"].ToString());
+            result.AdditionalData.Add("User-Agent", request.Headers["User-Agent"].ToString());
+            result.AdditionalData.Add("RemoteIpAddress", request?.HttpContext?.Connection?.RemoteIpAddress?.ToString());
+
+            return result;
+        }
     }
 }
