@@ -30,8 +30,19 @@ namespace GiftCertificateService.Logging
             Enviroment = EnviromentStatic.Enviroment ?? "Unset";
             AdditionalData = new();
             ServiceName = "CertInfo";
-            Status = status;
             ErrorDescription = "";
+            Status = status;
+        }
+        public ElasticLogElement(HttpContext httpContext, HttpRequest request) : this(LogStatus.Ok)
+        {
+            Path = $"{httpContext.Request.Path}({httpContext.Request.Method})";
+            Host = httpContext.Request.Host.ToString();
+            Id = Guid.NewGuid().ToString();
+            AuthenticatedUser = httpContext.User?.Identity?.Name;
+
+            AdditionalData.Add("Referer", request.Headers["Referer"].ToString());
+            AdditionalData.Add("User-Agent", request.Headers["User-Agent"].ToString());
+            AdditionalData.Add("RemoteIpAddress", request?.HttpContext?.Connection?.RemoteIpAddress?.ToString());
         }
 
         public void SetError(string errorDescription)
@@ -45,23 +56,6 @@ namespace GiftCertificateService.Logging
             {
                 ErrorDescription += $"; {errorDescription}";
             }
-        }
-
-        public static ElasticLogElement InitElasticLogElement(HttpContext httpContext, HttpRequest request)
-        {
-            ElasticLogElement result = new(LogStatus.Ok)
-            {
-                Path = $"{httpContext.Request.Path}({httpContext.Request.Method})",
-                Host = httpContext.Request.Host.ToString(),
-                Id = Guid.NewGuid().ToString(),
-                AuthenticatedUser = httpContext.User?.Identity?.Name
-            };
-
-            result.AdditionalData.Add("Referer", request.Headers["Referer"].ToString());
-            result.AdditionalData.Add("User-Agent", request.Headers["User-Agent"].ToString());
-            result.AdditionalData.Add("RemoteIpAddress", request?.HttpContext?.Connection?.RemoteIpAddress?.ToString());
-
-            return result;
         }
     }
 }

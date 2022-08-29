@@ -65,7 +65,6 @@ namespace GiftCertificateService.Services
             logElement.TimeSQLExecutionFact = watch.ElapsedMilliseconds;
             _ = sqlConnection.CloseAsync();
 
-            //_logger.LogInformation(JsonSerializer.Serialize(logElement));
             _logger.LogMessageGen(JsonSerializer.Serialize(logElement));
 
             return result;
@@ -103,7 +102,6 @@ namespace GiftCertificateService.Services
             if (loadBalancingError)
             {
                 logElement.SetError(loadBalancingErrorDescription);
-                //_logger.LogInformation(JsonSerializer.Serialize(logElement));
                 _logger.LogMessageGen(JsonSerializer.Serialize(logElement));
                 throw new DBConnectionNotFoundException(loadBalancingErrorDescription);
             }
