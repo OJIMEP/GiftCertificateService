@@ -12,14 +12,15 @@ namespace GiftCertificateService.Services
     {
         private readonly ILoadBalancing _loadBalancing;
         private readonly Stopwatch _watch;
+        private readonly ElasticLogElementDTO logElement;
         private List<string> barcodesList;
-        private ElasticLogElement? logElement;
 
         public CertService(ILoadBalancing loadBalancing)
         {
             _loadBalancing = loadBalancing;
             _watch = new();
             barcodesList = new();
+            logElement = new();
         }
 
         public async Task<List<ResponseCertGet>> GetCertsInfoByListAsync(List<string> barcodes)
@@ -33,25 +34,27 @@ namespace GiftCertificateService.Services
             try
             {
                 SqlCommand sqlCommand = GetSqlCommandCertInfo(sqlConnection);
-                
-                await FillCertsInfoResult(sqlCommand, result);
 
-                logElement?.SetResponse(result);
-                logElement?.SetStatistics(sqlConnection.RetrieveStatistics());
+                result = await GetCertsInfoResult(sqlCommand);
+
+                logElement.SetResponse(result);
+                logElement.SetStatistics(sqlConnection.RetrieveStatistics());
             }
             catch (Exception ex)
             {
-                logElement?.SetError(ex.Message);
+                logElement.SetError(ex.Message);
             }
-            logElement?.SetExecutionFact(_watch.EndMeasure());
-            
+            logElement.SetExecutionFact(_watch.EndMeasure());
+
             _ = sqlConnection.CloseAsync();
 
             return result;
         }
 
-        private async Task FillCertsInfoResult(SqlCommand sqlCommand, List<ResponseCertGet> result)
+        private async Task<List<ResponseCertGet>> GetCertsInfoResult(SqlCommand sqlCommand)
         {
+            List<ResponseCertGet> result = new();
+
             SqlDataReader dataReader = await sqlCommand.ExecuteReaderAsync();
 
             while (await dataReader.ReadAsync())
@@ -66,6 +69,8 @@ namespace GiftCertificateService.Services
             }
 
             _ = dataReader.CloseAsync();
+
+            return result;
         }
 
         private async Task<SqlConnection> GetSqlConnectionAsync()
@@ -92,12 +97,12 @@ namespace GiftCertificateService.Services
                 loadBalancingErrorDescription = "Не найдено доступное соединение к БД";
             }
 
-            logElement?.SetLoadBalancingExecution(_watch.EndMeasure());
-            logElement?.SetDatabaseConnection(dbConnection.ConnectionWithoutCredentials);
+            logElement.SetLoadBalancingExecution(_watch.EndMeasure());
+            logElement.SetDatabaseConnection(dbConnection.ConnectionWithoutCredentials);
 
             if (loadBalancingError)
             {
-                logElement?.SetError(loadBalancingErrorDescription);
+                logElement.SetError(loadBalancingErrorDescription);
                 throw new DBConnectionNotFoundException(loadBalancingErrorDescription);
             }
 
@@ -132,9 +137,9 @@ namespace GiftCertificateService.Services
             return command;
         }
 
-        public void SetLogElement(ElasticLogElement logElement)
+        public ElasticLogElementDTO GetLog()
         {
-            this.logElement = logElement;
+            return logElement;
         }
     }
 }

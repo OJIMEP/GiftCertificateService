@@ -5,7 +5,6 @@ using GiftCertificateService.Models;
 using GiftCertificateService.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Text.Json;
 
 namespace GiftCertificateService.Controllers
 {
@@ -98,10 +97,6 @@ namespace GiftCertificateService.Controllers
 
             List<ResponseCertGet> result;
 
-            var logElement = new ElasticLogElement(HttpContext, Request);
-            logElement.SetRequest(barcodeList);
-            _certService.SetLogElement(logElement);
-
             try
             {
                 result = await _certService.GetCertsInfoByListAsync(barcodeList);
@@ -117,6 +112,8 @@ namespace GiftCertificateService.Controllers
             }
             finally
             {
+                var logElement = new ElasticLogElement(HttpContext, Request, _certService.GetLog());
+                logElement.SetRequest(barcodeList);
                 _logger.LogMessageGen(logElement.ToString());
             }
 

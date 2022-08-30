@@ -19,10 +19,7 @@ namespace GiftCertificateService.Logging
         public long TimeFullExecution { get; set; }
         public string? DatabaseConnection { get; set; }
         public string? AuthenticatedUser { get; set; }
-        public long TimeBtsExecution { get; set; }
-        public long TimeLocationExecution { get; set; }
         public long LoadBalancingExecution { get; set; }
-        public long GlobalParametersExecution { get; set; }
         public Dictionary<string, string?> AdditionalData { get; set; }
         public string Enviroment { get; set; }
         public string ServiceName { get; set; }
@@ -45,6 +42,21 @@ namespace GiftCertificateService.Logging
             AdditionalData.Add("Referer", request.Headers["Referer"].ToString());
             AdditionalData.Add("User-Agent", request.Headers["User-Agent"].ToString());
             AdditionalData.Add("RemoteIpAddress", request?.HttpContext?.Connection?.RemoteIpAddress?.ToString());
+        }
+
+        public ElasticLogElement(HttpContext httpContext, HttpRequest request, ElasticLogElementDTO dto) : this(httpContext, request)
+        {
+            Status = dto.Status; 
+            ErrorDescription = dto.ErrorDescription;
+            ResponseContent = dto.ResponseContent;
+            TimeSQLExecutionFact = dto.TimeSQLExecutionFact;
+            LoadBalancingExecution = dto.LoadBalancingExecution;
+            DatabaseConnection = dto.DatabaseConnection;
+
+            foreach (var item in dto.AdditionalData)
+            {
+                AdditionalData.Add(item.Key, item.Value);
+            }
         }
 
         public void SetError(string errorDescription)
