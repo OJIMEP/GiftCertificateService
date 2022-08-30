@@ -6,6 +6,4 @@
         ReplicaFull,
         ReplicaTables
     }
-
-
 }

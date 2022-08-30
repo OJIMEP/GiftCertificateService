@@ -1,23 +1,21 @@
-﻿using Microsoft.Extensions.Logging;
-
-namespace GiftCertificateService.Logging
+﻿namespace GiftCertificateService.Logging
 {
     public class HttpLoggerProvider : ILoggerProvider
     {
-        private readonly string host;
-        private readonly int port;
-        private readonly int portHttp;
-        private readonly string env;
-        public HttpLoggerProvider(string _host, int _port, int _portHttp, string _env)
+        private readonly string _host;
+        private readonly int _port;
+        private readonly int _portHttp;
+        private readonly string _env;
+        public HttpLoggerProvider(string host, int port, int portHttp, string env)
         {
-            host = _host;
-            port = _port;
-            portHttp = _portHttp;
-            env = _env;
+            _host = host;
+            _port = port;
+            _portHttp = portHttp;
+            _env = env;
         }
         public ILogger CreateLogger(string categoryName)
         {
-            return new HttpLogger(host, port, portHttp, env);
+            return new HttpLogger(_host, _port, _portHttp, _env);
         }
 
         public void Dispose()

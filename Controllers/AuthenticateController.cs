@@ -1,12 +1,8 @@
 ﻿using AuthLibrary.Data;
 using DateTimeService.Areas.Identity.Models;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace GiftCertificateService.Controllers
 {
@@ -14,14 +10,14 @@ namespace GiftCertificateService.Controllers
     [ApiController]
     public class AuthenticateController : ControllerBase
     {
-        private readonly UserManager<DateTimeServiceUser> userManager;
-        private readonly RoleManager<IdentityRole> roleManager;
+        private readonly UserManager<DateTimeServiceUser> _userManager;
+        private readonly RoleManager<IdentityRole> _roleManager;
         private readonly IUserService _userService;
 
         public AuthenticateController(UserManager<DateTimeServiceUser> userManager, RoleManager<IdentityRole> roleManager, IUserService userService)
         {
-            this.userManager = userManager;
-            this.roleManager = roleManager;
+            this._userManager = userManager;
+            this._roleManager = roleManager;
             _userService = userService;
         }
 
@@ -30,8 +26,8 @@ namespace GiftCertificateService.Controllers
         [Route("login")]
         public async Task<IActionResult> Login([FromBody] LoginModel model)
         {
-            var user = await userManager.FindByNameAsync(model.Username);
-            if (user != null && await userManager.CheckPasswordAsync(user, model.Password))
+            var user = await _userManager.FindByNameAsync(model.Username);
+            if (user != null && await _userManager.CheckPasswordAsync(user, model.Password))
             {
                 var response = await _userService.AuthenticateAsync(model, IpAddress());
 
@@ -92,7 +88,7 @@ namespace GiftCertificateService.Controllers
         [Route("register")]
         public async Task<IActionResult> Register([FromBody] RegisterModel model)
         {
-            var userExists = await userManager.FindByNameAsync(model.Username);
+            var userExists = await _userManager.FindByNameAsync(model.Username);
             if (userExists != null)
                 return StatusCode(StatusCodes.Status500InternalServerError, new Response { Status = "Error", Message = "User already exists!" });
 
@@ -103,15 +99,15 @@ namespace GiftCertificateService.Controllers
                 UserName = model.Username
             };
 
-            var result = await userManager.CreateAsync(user, model.Password);
+            var result = await _userManager.CreateAsync(user, model.Password);
 
             if (result.Succeeded)
             {
                 foreach (var role in model.Roles)
                 {
-                    if (await roleManager.RoleExistsAsync(role))
+                    if (await _roleManager.RoleExistsAsync(role))
                     {
-                        await userManager.AddToRoleAsync(user, role);
+                        await _userManager.AddToRoleAsync(user, role);
                     }
                 }
             }
@@ -122,16 +118,17 @@ namespace GiftCertificateService.Controllers
             return Ok(new Response { Status = "Success", Message = "User created successfully!" });
         }
 
+
         [Authorize(Roles = UserRoles.Admin)]
         [HttpPost]
         [Route("delete")]
         public async Task<IActionResult> Delete([FromBody] DeleteModel model)
         {
-            var user = await userManager.FindByNameAsync(model.Username);
+            var user = await _userManager.FindByNameAsync(model.Username);
             if (user == null)
                 return StatusCode(StatusCodes.Status500InternalServerError, new Response { Status = "Error", Message = "User not found!" });
 
-            var result = await userManager.DeleteAsync(user);
+            var result = await _userManager.DeleteAsync(user);
 
             if (!result.Succeeded)
                 return StatusCode(StatusCodes.Status500InternalServerError, new Response { Status = "Error", Message = "User deletion failed! Please check user details and try again.", Description = result.Errors });
@@ -146,11 +143,11 @@ namespace GiftCertificateService.Controllers
         public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordModel model)
         {
 
-            var user = await userManager.FindByNameAsync(model.Username);
-            if (user == null || !await userManager.CheckPasswordAsync(user, model.OldPassword))
+            var user = await _userManager.FindByNameAsync(model.Username);
+            if (user == null || !await _userManager.CheckPasswordAsync(user, model.OldPassword))
                 return StatusCode(StatusCodes.Status500InternalServerError, new Response { Status = "Error", Message = "User not found or wrong old password" });
 
-            var result = await userManager.ChangePasswordAsync(user, model.OldPassword, model.NewPassword);
+            var result = await _userManager.ChangePasswordAsync(user, model.OldPassword, model.NewPassword);
 
             if (!result.Succeeded)
                 return StatusCode(StatusCodes.Status500InternalServerError, new Response { Status = "Error", Message = "Password change is failed! Please check user details and try again.", Description = result.Errors });
@@ -165,7 +162,7 @@ namespace GiftCertificateService.Controllers
         public async Task<IActionResult> ModifyRoles([FromBody] ModifyRolesModel model)
         {
 
-            var user = await userManager.FindByNameAsync(model.Username);
+            var user = await _userManager.FindByNameAsync(model.Username);
             if (user == null)
                 return StatusCode(StatusCodes.Status500InternalServerError, new Response { Status = "Error", Message = "User not found" });
 
@@ -174,18 +171,18 @@ namespace GiftCertificateService.Controllers
 
             foreach (var role in model.AddRoles)
             {
-                if (await roleManager.RoleExistsAsync(role))
+                if (await _roleManager.RoleExistsAsync(role))
                 {
-                    await userManager.AddToRoleAsync(user, role);
+                    await _userManager.AddToRoleAsync(user, role);
                     successAddRoles.Add(role);
                 }
             }
 
             foreach (var role in model.DeleteRoles)
             {
-                if (await roleManager.RoleExistsAsync(role))
+                if (await _roleManager.RoleExistsAsync(role))
                 {
-                    await userManager.RemoveFromRoleAsync(user, role);
+                    await _userManager.RemoveFromRoleAsync(user, role);
                     successDeleteRoles.Add(role);
                 }
             }
@@ -199,7 +196,7 @@ namespace GiftCertificateService.Controllers
         [Route("available-roles")]
         public IActionResult GetAvailableRoles()
         {
-            return Ok(roleManager.Roles);
+            return Ok(_roleManager.Roles);
         }
 
 

@@ -25,9 +25,11 @@ namespace GiftCertificateService.Data
         {
             var result = new DbConnection();
 
-            var connectionParameters = _configuration.GetSection("OneSDatabases").Get<List<DatabaseConnectionParameter>>().Select(x => new DatabaseInfo(x));
+            var connectionParameters = _configuration.GetSection("OneSDatabases")
+                .Get<List<DatabaseConnectionParameter>>()
+                .Select(x => new DatabaseInfo(x));
 
-            var timeMS = DateTime.Now.Millisecond % 100;
+            var timeMs = DateTime.Now.Millisecond % 100;
 
             List<string> failedConnections = new();
 
@@ -40,29 +42,29 @@ namespace GiftCertificateService.Data
             while (true)
             {
                 int percentCounter = 0;
-                foreach (var connParametr in connectionParameters)
+                foreach (var connParameter in connectionParameters)
                 {
-                    if (firstAvailable && failedConnections.Contains(connParametr.Connection))
+                    if (firstAvailable && failedConnections.Contains(connParameter.Connection))
                         continue;
 
                     Stopwatch watch = new();
-                    percentCounter += connParametr.Priority;
-                    if (timeMS <= percentCounter && connParametr.Priority != 0 || firstAvailable)
+                    percentCounter += connParameter.Priority;
+                    if (timeMs <= percentCounter && connParameter.Priority != 0 || firstAvailable)
                     {
                         try
                         {
                             watch.StartMeasure();
 
-                            conn = await GetConnectionByDatabaseInfo(connParametr);
+                            conn = await GetConnectionByDatabaseInfo(connParameter);
 
                             watch.EndMeasure();
 
-                            resultString = connParametr.Connection;
+                            resultString = connParameter.Connection;
                             
                             result.Connection = conn;
-                            result.DatabaseType = connParametr.DatabaseType;
-                            result.UseAggregations = connParametr.CustomAggregationsAvailable;
-                            result.ConnectionWithoutCredentials = connParametr.ConnectionWithoutCredentials;
+                            result.DatabaseType = connParameter.DatabaseType;
+                            result.UseAggregations = connParameter.CustomAggregationsAvailable;
+                            result.ConnectionWithoutCredentials = connParameter.ConnectionWithoutCredentials;
                             break;
                         }
                         catch (Exception ex)
@@ -71,7 +73,7 @@ namespace GiftCertificateService.Data
                             {
                                 ErrorDescription = ex.Message,
                                 LoadBalancingExecution = watch.EndMeasure(),
-                                DatabaseConnection = connParametr.ConnectionWithoutCredentials
+                                DatabaseConnection = connParameter.ConnectionWithoutCredentials
                             };
 
                             _logger.LogMessageGen(logElement.ToString());
@@ -81,7 +83,7 @@ namespace GiftCertificateService.Data
                                 _ = conn.CloseAsync();
                             }
 
-                            failedConnections.Add(connParametr.Connection);
+                            failedConnections.Add(connParameter.Connection);
                         }
                     }
                 }
@@ -99,13 +101,13 @@ namespace GiftCertificateService.Data
         {
             var queryStringCheck = "";
             if (databaseInfo.DatabaseType == DatabaseType.Main)
-                queryStringCheck = Queries.DatebaseBalancingMain;
+                queryStringCheck = Queries.DatabaseBalancingMain;
 
             if (databaseInfo.DatabaseType == DatabaseType.ReplicaFull)
-                queryStringCheck = Queries.DatebaseBalancingReplicaFull;
+                queryStringCheck = Queries.DatabaseBalancingReplicaFull;
 
             if (databaseInfo.DatabaseType == DatabaseType.ReplicaTables)
-                queryStringCheck = Queries.DatebaseBalancingReplicaTables;
+                queryStringCheck = Queries.DatabaseBalancingReplicaTables;
 
             //sql connection object
             SqlConnection connection = new(databaseInfo.Connection);

@@ -11,8 +11,8 @@ namespace GiftCertificateService.Logging
         public string? Host { get; set; }
         public string? ResponseContent { get; set; }
         public string? RequestContent { get; set; }
-        public long TimeSQLExecution { get; set; }
-        public long TimeSQLExecutionFact { get; set; }
+        public long TimeSqlExecution { get; set; }
+        public long TimeSqlExecutionFact { get; set; }
         [JsonConverter(typeof(JsonStringEnumConverter))] 
         public LogStatus Status { get; set; }
         public string ErrorDescription { get; set; }
@@ -44,12 +44,12 @@ namespace GiftCertificateService.Logging
             AdditionalData.Add("RemoteIpAddress", request?.HttpContext?.Connection?.RemoteIpAddress?.ToString());
         }
 
-        public ElasticLogElement(HttpContext httpContext, HttpRequest request, ElasticLogElementDTO dto) : this(httpContext, request)
+        public ElasticLogElement(HttpContext httpContext, HttpRequest request, ElasticLogElementDto dto) : this(httpContext, request)
         {
             Status = dto.Status; 
             ErrorDescription = dto.ErrorDescription;
             ResponseContent = dto.ResponseContent;
-            TimeSQLExecutionFact = dto.TimeSQLExecutionFact;
+            TimeSqlExecutionFact = dto.TimeSqlExecutionFact;
             LoadBalancingExecution = dto.LoadBalancingExecution;
             DatabaseConnection = dto.DatabaseConnection;
 
@@ -84,13 +84,13 @@ namespace GiftCertificateService.Logging
 
         public void SetStatistics(IDictionary stats)
         {
-            TimeSQLExecution = (long)(stats["ExecutionTime"] ?? 0);
+            TimeSqlExecution = (long)(stats["ExecutionTime"] ?? 0);
             AdditionalData.Add("stats", JsonSerializer.Serialize(stats));
         }
 
         public void SetExecutionFact(long elapsedMilliseconds)
         {
-            TimeSQLExecutionFact = elapsedMilliseconds;
+            TimeSqlExecutionFact = elapsedMilliseconds;
         }
 
         public void SetLoadBalancingExecution(long elapsedMilliseconds)

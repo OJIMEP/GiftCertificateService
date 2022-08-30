@@ -7,6 +7,6 @@ namespace GiftCertificateService.Services
     {
         Task<List<ResponseCertGet>> GetCertsInfoByListAsync(List<string> barcodes);
 
-        ElasticLogElementDTO GetLog();
+        ElasticLogElementDto GetLog();
     }
 }

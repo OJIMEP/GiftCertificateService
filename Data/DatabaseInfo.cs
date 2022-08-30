@@ -7,11 +7,11 @@
         public DateTimeOffset LastFreeProcCacheCommand { get; set; }
         public DateTimeOffset LastCheckAvailability { get; set; }
         public DateTimeOffset LastCheckAggregations { get; set; }
-        public DateTimeOffset LastCheckPerfomance { get; set; }
+        public DateTimeOffset LastCheckPerformance { get; set; }
         public int ActualPriority { get; set; }
         public bool ExistsInFile { get; set; }
         public bool CustomAggregationsAvailable { get; set; }
-        public int CustomAggsFailCount { get; set; }
+        public int CustomAggregationsFailCount { get; set; }
         public int TimeCriteriaFailCount { get; set; }
         public DatabaseType DatabaseType { get; set; }  
 
@@ -44,11 +44,11 @@
                 LastFreeProcCacheCommand = LastFreeProcCacheCommand,
                 LastCheckAvailability = LastCheckAvailability,
                 LastCheckAggregations = LastCheckAggregations,
-                LastCheckPerfomance = LastCheckPerfomance,
+                LastCheckPerformance = LastCheckPerformance,
                 ActualPriority = ActualPriority,
                 ExistsInFile = ExistsInFile,
                 CustomAggregationsAvailable = CustomAggregationsAvailable,
-                CustomAggsFailCount = CustomAggsFailCount,
+                CustomAggregationsFailCount = CustomAggregationsFailCount,
                 TimeCriteriaFailCount = TimeCriteriaFailCount,
                 DatabaseType = DatabaseType
             };
@@ -63,6 +63,4 @@
                     .Where(item => !item.Contains("Uid") && !item.Contains("User") && !item.Contains("Pwd") && !item.Contains("Password") && item.Length > 0));
         }
     }
-
-
 }

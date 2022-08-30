@@ -12,7 +12,7 @@ namespace GiftCertificateService.Services
     {
         private readonly ILoadBalancing _loadBalancing;
         private readonly Stopwatch _watch;
-        private readonly ElasticLogElementDTO logElement;
+        private readonly ElasticLogElementDto logElement;
         private List<string> barcodesList;
 
         public CertService(ILoadBalancing loadBalancing)
@@ -137,7 +137,7 @@ namespace GiftCertificateService.Services
             return command;
         }
 
-        public ElasticLogElementDTO GetLog()
+        public ElasticLogElementDto GetLog()
         {
             return logElement;
         }
