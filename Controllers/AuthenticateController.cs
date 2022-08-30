@@ -16,8 +16,8 @@ namespace GiftCertificateService.Controllers
 
         public AuthenticateController(UserManager<DateTimeServiceUser> userManager, RoleManager<IdentityRole> roleManager, IUserService userService)
         {
-            this._userManager = userManager;
-            this._roleManager = roleManager;
+            _userManager = userManager;
+            _roleManager = roleManager;
             _userService = userService;
         }
 

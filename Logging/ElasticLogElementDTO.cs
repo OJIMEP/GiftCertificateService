@@ -3,7 +3,7 @@ using System.Text.Json;
 
 namespace GiftCertificateService.Logging
 {
-    public class ElasticLogElementDto
+    public class ElasticLogElementDTO
     {
         public string? ResponseContent { get; set; }
         public long TimeSqlExecution { get; set; }
@@ -14,7 +14,7 @@ namespace GiftCertificateService.Logging
         public long LoadBalancingExecution { get; set; }
         public Dictionary<string, string?> AdditionalData { get; set; }
 
-        public ElasticLogElementDto()
+        public ElasticLogElementDTO()
         {
             AdditionalData = new();
             ErrorDescription = string.Empty;
