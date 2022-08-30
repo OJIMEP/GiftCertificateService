@@ -5,6 +5,7 @@ using GiftCertificateService.Models;
 using GiftCertificateService.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Text.Json;
 
 namespace GiftCertificateService.Controllers
 {
@@ -97,10 +98,13 @@ namespace GiftCertificateService.Controllers
 
             List<ResponseCertGet> result;
 
+            var logElement = new ElasticLogElement(HttpContext, Request);
+            logElement.SetRequest(barcodeList);
+            _certService.SetLogElement(logElement);
+
             try
             {
-                var logElement = new ElasticLogElement(HttpContext, Request);
-                result = await _certService.GetCertsInfoByListAsync(barcodeList, logElement);
+                result = await _certService.GetCertsInfoByListAsync(barcodeList);
             }
             catch (DBConnectionNotFoundException)
             {
@@ -110,6 +114,10 @@ namespace GiftCertificateService.Controllers
             {
                 _logger.LogErrorMessage(ex.Message, ex);
                 return StatusCode(500, new ResponseError { Error = "Internal server error" });
+            }
+            finally
+            {
+                _logger.LogMessageGen(logElement.ToString());
             }
 
             if (result is null)

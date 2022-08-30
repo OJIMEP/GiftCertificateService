@@ -1,4 +1,6 @@
-﻿using System.Text.Json.Serialization;
+﻿using System.Collections;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace GiftCertificateService.Logging
 {
@@ -56,6 +58,42 @@ namespace GiftCertificateService.Logging
             {
                 ErrorDescription += $"; {errorDescription}";
             }
+        }
+
+        public void SetResponse<T>(T response)
+        {
+            ResponseContent = JsonSerializer.Serialize(new { response = JsonSerializer.Serialize(response) });
+        }
+
+        public void SetRequest<T>(T request)
+        {
+            RequestContent = JsonSerializer.Serialize(new { request = JsonSerializer.Serialize(request) });
+        }
+
+        public void SetStatistics(IDictionary stats)
+        {
+            TimeSQLExecution = (long)(stats["ExecutionTime"] ?? 0);
+            AdditionalData.Add("stats", JsonSerializer.Serialize(stats));
+        }
+
+        public void SetExecutionFact(long elapsedMilliseconds)
+        {
+            TimeSQLExecutionFact = elapsedMilliseconds;
+        }
+
+        public void SetLoadBalancingExecution(long elapsedMilliseconds)
+        {
+            LoadBalancingExecution = elapsedMilliseconds;
+        }
+
+        public void SetDatabaseConnection(string connectionString)
+        {
+            DatabaseConnection = connectionString;
+        }
+
+        public override string ToString()
+        {
+            return JsonSerializer.Serialize(this);
         }
     }
 }

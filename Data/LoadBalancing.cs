@@ -1,7 +1,7 @@
 ﻿using GiftCertificateService.Logging;
+using GiftCertificateService.Services;
 using Microsoft.Data.SqlClient;
 using System.Diagnostics;
-using System.Text.Json;
 
 namespace GiftCertificateService.Data
 {
@@ -51,11 +51,11 @@ namespace GiftCertificateService.Data
                     {
                         try
                         {
-                            watch.Start();
+                            watch.StartMeasure();
 
                             conn = await GetConnectionByDatabaseInfo(connParametr);
 
-                            watch.Stop();
+                            watch.EndMeasure();
 
                             resultString = connParametr.Connection;
                             
@@ -67,19 +67,14 @@ namespace GiftCertificateService.Data
                         }
                         catch (Exception ex)
                         {
-                            if (watch.IsRunning)
-                            {
-                                watch.Stop();
-                            }
-
                             var logElement = new ElasticLogElement(LogStatus.Error)
                             {
                                 ErrorDescription = ex.Message,
-                                LoadBalancingExecution = watch.ElapsedMilliseconds,
+                                LoadBalancingExecution = watch.EndMeasure(),
                                 DatabaseConnection = connParametr.ConnectionWithoutCredentials
                             };
 
-                            _logger.LogMessageGen(JsonSerializer.Serialize(logElement));
+                            _logger.LogMessageGen(logElement.ToString());
 
                             if (conn != null && conn.State != System.Data.ConnectionState.Closed)
                             {

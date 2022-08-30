@@ -5,6 +5,8 @@ namespace GiftCertificateService.Services
 {
     public interface ICertService
     {
-        Task<List<ResponseCertGet>> GetCertsInfoByListAsync(List<string> barcodes, ElasticLogElement logElement);
+        Task<List<ResponseCertGet>> GetCertsInfoByListAsync(List<string> barcodes);
+
+        void SetLogElement(ElasticLogElement logElement);
     }
 }
