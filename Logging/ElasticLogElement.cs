@@ -44,7 +44,7 @@ namespace GiftCertificateService.Logging
             AdditionalData.Add("RemoteIpAddress", request?.HttpContext?.Connection?.RemoteIpAddress?.ToString());
         }
 
-        public ElasticLogElement(HttpContext httpContext, HttpRequest request, ElasticLogElementDto dto) : this(httpContext, request)
+        public ElasticLogElement(HttpContext httpContext, HttpRequest request, ElasticLogElementDTO dto) : this(httpContext, request)
         {
             Status = dto.Status; 
             ErrorDescription = dto.ErrorDescription;
