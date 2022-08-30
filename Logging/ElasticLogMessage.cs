@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Serialization;
+using System.Text.Json;
 
 namespace GiftCertificateService.Logging
 {
@@ -10,6 +11,11 @@ namespace GiftCertificateService.Logging
         public ElasticLogMessage()
         {
             Message = new List<string>();
+        }
+
+        public override string ToString()
+        {
+            return JsonSerializer.Serialize(this);
         }
     }
 }

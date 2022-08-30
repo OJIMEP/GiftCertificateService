@@ -1,84 +1,81 @@
-﻿using GiftCertificateService.Controllers;
-using GiftCertificateService.Data;
+﻿using GiftCertificateService.Data;
 using GiftCertificateService.Exceptions;
 using GiftCertificateService.Logging;
 using GiftCertificateService.Models;
 using Microsoft.Data.SqlClient;
 using System.Data;
 using System.Diagnostics;
-using System.Text.Json;
 
 namespace GiftCertificateService.Services
 {
     public class CertService : ICertService
     {
-        private readonly ILogger<GiftCertController> _logger;
         private readonly ILoadBalancing _loadBalancing;
+        private readonly Stopwatch _watch;
+        private List<string> barcodesList;
+        private ElasticLogElement? logElement;
 
-        public CertService(ILogger<GiftCertController> logger, ILoadBalancing loadBalancing)
+        public CertService(ILoadBalancing loadBalancing)
         {
-            _logger = logger;
             _loadBalancing = loadBalancing;
+            _watch = new();
+            barcodesList = new();
         }
 
-        public async Task<List<ResponseCertGet>> GetCertsInfoByListAsync(List<string> barcodes, ElasticLogElement logElement)
+        public async Task<List<ResponseCertGet>> GetCertsInfoByListAsync(List<string> barcodes)
         {
-            logElement.RequestContent = JsonSerializer.Serialize(new { request = JsonSerializer.Serialize(barcodes) });
-
-            SqlConnection sqlConnection = await GetDatabaseConnection(logElement);
-
+            barcodesList = barcodes;
             var result = new List<ResponseCertGet>();
 
-            Stopwatch watch = new();
-            watch.Start();
+            SqlConnection sqlConnection = await GetSqlConnectionAsync();
+
+            _watch.StartMeasure();
             try
             {
-                //execute the SQLCommand
-                SqlDataReader dataReader = await GetSqlCommandCertInfo(sqlConnection,
-                    barcodes.Select(x => x.ToUpper()).Distinct().ToList()).ExecuteReaderAsync();
+                SqlCommand sqlCommand = GetSqlCommandCertInfo(sqlConnection);
+                
+                await FillCertsInfoResult(sqlCommand, result);
 
-                while (await dataReader.ReadAsync())
-                {
-                    var dbBarcode = dataReader.GetString(0);
-
-                    result.Add(new ResponseCertGet
-                    {
-                        Barcode = barcodes.Find(x => x.ToUpper() == dbBarcode) ?? dbBarcode,
-                        Sum = dataReader.GetDecimal(1)
-                    });
-                }
-
-                var stats = sqlConnection.RetrieveStatistics();
-                var sqlCommandExecutionTime = stats["ExecutionTime"] ?? 0;
-
-                _ = dataReader.CloseAsync();
-
-                logElement.TimeSQLExecution = (long)sqlCommandExecutionTime;
-                logElement.ResponseContent = JsonSerializer.Serialize(new { response = JsonSerializer.Serialize(result) });
-                logElement.AdditionalData.Add("stats", JsonSerializer.Serialize(stats));
+                logElement?.SetResponse(result);
+                logElement?.SetStatistics(sqlConnection.RetrieveStatistics());
             }
             catch (Exception ex)
             {
-                logElement.SetError(ex.Message);
+                logElement?.SetError(ex.Message);
             }
-            watch.Stop();
-            logElement.TimeSQLExecutionFact = watch.ElapsedMilliseconds;
+            logElement?.SetExecutionFact(_watch.EndMeasure());
+            
             _ = sqlConnection.CloseAsync();
-
-            _logger.LogMessageGen(JsonSerializer.Serialize(logElement));
 
             return result;
         }
 
-        private async Task<SqlConnection> GetDatabaseConnection(ElasticLogElement logElement)
+        private async Task FillCertsInfoResult(SqlCommand sqlCommand, List<ResponseCertGet> result)
+        {
+            SqlDataReader dataReader = await sqlCommand.ExecuteReaderAsync();
+
+            while (await dataReader.ReadAsync())
+            {
+                var dbBarcode = dataReader.GetString(0);
+
+                result.Add(new ResponseCertGet
+                {
+                    Barcode = barcodesList.Find(x => x.ToUpper() == dbBarcode) ?? dbBarcode,
+                    Sum = dataReader.GetDecimal(1)
+                });
+            }
+
+            _ = dataReader.CloseAsync();
+        }
+
+        private async Task<SqlConnection> GetSqlConnectionAsync()
         {
             bool loadBalancingError = false;
             string loadBalancingErrorDescription = string.Empty;
 
             DbConnection dbConnection = new();
 
-            Stopwatch watch = new();
-            watch.Start();
+            _watch.StartMeasure();
             try
             {
                 dbConnection = await _loadBalancing.GetDatabaseConnectionAsync();
@@ -88,21 +85,19 @@ namespace GiftCertificateService.Services
                 loadBalancingError = true;
                 loadBalancingErrorDescription = ex.Message;
             }
-            watch.Stop();
-
+            
             if (!loadBalancingError && dbConnection.Connection == null)
             {
                 loadBalancingError = true;
                 loadBalancingErrorDescription = "Не найдено доступное соединение к БД";
             }
 
-            logElement.LoadBalancingExecution = watch.ElapsedMilliseconds;
-            logElement.DatabaseConnection = dbConnection.ConnectionWithoutCredentials;
+            logElement?.SetLoadBalancingExecution(_watch.EndMeasure());
+            logElement?.SetDatabaseConnection(dbConnection.ConnectionWithoutCredentials);
 
             if (loadBalancingError)
             {
-                logElement.SetError(loadBalancingErrorDescription);
-                _logger.LogMessageGen(JsonSerializer.Serialize(logElement));
+                logElement?.SetError(loadBalancingErrorDescription);
                 throw new DBConnectionNotFoundException(loadBalancingErrorDescription);
             }
 
@@ -113,9 +108,10 @@ namespace GiftCertificateService.Services
             return result;
         }
 
-        private static SqlCommand GetSqlCommandCertInfo(SqlConnection connection, List<string> barcodesUpperCase)
+        private SqlCommand GetSqlCommandCertInfo(SqlConnection connection)
         {
-            //define the SqlCommand object
+            List<string> barcodesUpperCase = barcodesList.Select(x => x.ToUpper()).Distinct().ToList();
+
             SqlCommand command = new()
             {
                 Connection = connection,
@@ -136,5 +132,9 @@ namespace GiftCertificateService.Services
             return command;
         }
 
+        public void SetLogElement(ElasticLogElement logElement)
+        {
+            this.logElement = logElement;
+        }
     }
 }

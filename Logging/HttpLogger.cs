@@ -1,6 +1,5 @@
 ﻿using System.Net.Sockets;
 using System.Text;
-using System.Text.Json;
 
 namespace GiftCertificateService.Logging
 {
@@ -47,7 +46,7 @@ namespace GiftCertificateService.Logging
                         logElement.AdditionalData.Add("StackTrace", exception.StackTrace);
                     }
 
-                    var logstringElement = JsonSerializer.Serialize(logElement);
+                    var logstringElement = logElement.ToString();
                     logMessage.Message.Add(logstringElement);
                 }
                 else
@@ -55,7 +54,7 @@ namespace GiftCertificateService.Logging
                     logMessage.Message.Add(formatter(state, exception));
                 }
 
-                var resultLog = JsonSerializer.Serialize(logMessage);
+                var resultLog = logMessage.ToString();
 
                 byte[] sendBytes = Encoding.UTF8.GetBytes(resultLog);
 
