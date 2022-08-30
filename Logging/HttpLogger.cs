@@ -36,7 +36,7 @@ namespace GiftCertificateService.Logging
                 {
                     var logElement = new ElasticLogElement(LogStatus.Info)
                     {
-                        TimeSQLExecution = 0,
+                        TimeSqlExecution = 0,
                         ErrorDescription = formatter(state, exception),
                     };
 

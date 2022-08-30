@@ -117,25 +117,12 @@ namespace GiftCertificateService.Controllers
                 _logger.LogMessageGen(logElement.ToString());
             }
 
-            if (result is null)
-            {
-                return StatusCode(500, new ResponseError { Error = "Internal server error" });
-            }
-
             if (result.Count == 0)
             {
                 return BadRequest(new ResponseError { Error = "Certs aren't valid" });
             }
 
-            if (single)
-            {
-                return Ok(result.First());
-            }
-            else
-            {
-                return Ok(result.ToArray());
-            }
+            return single ? Ok(result.First()) : Ok(result.ToArray());
         }
-
     }
 }

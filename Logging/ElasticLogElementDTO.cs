@@ -3,18 +3,18 @@ using System.Text.Json;
 
 namespace GiftCertificateService.Logging
 {
-    public class ElasticLogElementDTO
+    public class ElasticLogElementDto
     {
         public string? ResponseContent { get; set; }
-        public long TimeSQLExecution { get; set; }
-        public long TimeSQLExecutionFact { get; set; }
+        public long TimeSqlExecution { get; set; }
+        public long TimeSqlExecutionFact { get; set; }
         public LogStatus Status { get; set; }
         public string ErrorDescription { get; set; }
         public string? DatabaseConnection { get; set; }
         public long LoadBalancingExecution { get; set; }
         public Dictionary<string, string?> AdditionalData { get; set; }
 
-        public ElasticLogElementDTO()
+        public ElasticLogElementDto()
         {
             AdditionalData = new();
             ErrorDescription = string.Empty;
@@ -41,13 +41,13 @@ namespace GiftCertificateService.Logging
 
         public void SetStatistics(IDictionary stats)
         {
-            TimeSQLExecution = (long)(stats["ExecutionTime"] ?? 0);
+            TimeSqlExecution = (long)(stats["ExecutionTime"] ?? 0);
             AdditionalData.Add("stats", JsonSerializer.Serialize(stats));
         }
 
         public void SetExecutionFact(long elapsedMilliseconds)
         {
-            TimeSQLExecutionFact = elapsedMilliseconds;
+            TimeSqlExecutionFact = elapsedMilliseconds;
         }
 
         public void SetLoadBalancingExecution(long elapsedMilliseconds)

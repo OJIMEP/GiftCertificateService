@@ -1,6 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
-
-namespace GiftCertificateService.Logging
+﻿namespace GiftCertificateService.Logging
 {
     public static class HttpLoggerExtensions
     {
