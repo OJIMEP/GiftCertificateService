@@ -11,8 +11,8 @@ namespace GiftCertificateService.Logging
         public string? Host { get; set; }
         public string? ResponseContent { get; set; }
         public string? RequestContent { get; set; }
-        public long TimeSqlExecution { get; set; }
-        public long TimeSqlExecutionFact { get; set; }
+        public long TimeSQLExecution { get; set; }
+        public long TimeSQLExecutionFact { get; set; }
         [JsonConverter(typeof(JsonStringEnumConverter))] 
         public LogStatus Status { get; set; }
         public string ErrorDescription { get; set; }
@@ -49,7 +49,7 @@ namespace GiftCertificateService.Logging
             Status = dto.Status; 
             ErrorDescription = dto.ErrorDescription;
             ResponseContent = dto.ResponseContent;
-            TimeSqlExecutionFact = dto.TimeSqlExecutionFact;
+            TimeSQLExecutionFact = dto.TimeSqlExecutionFact;
             LoadBalancingExecution = dto.LoadBalancingExecution;
             DatabaseConnection = dto.DatabaseConnection;
 
@@ -84,13 +84,13 @@ namespace GiftCertificateService.Logging
 
         public void SetStatistics(IDictionary stats)
         {
-            TimeSqlExecution = (long)(stats["ExecutionTime"] ?? 0);
+            TimeSQLExecution = (long)(stats["ExecutionTime"] ?? 0);
             AdditionalData.Add("stats", JsonSerializer.Serialize(stats));
         }
 
         public void SetExecutionFact(long elapsedMilliseconds)
         {
-            TimeSqlExecutionFact = elapsedMilliseconds;
+            TimeSQLExecutionFact = elapsedMilliseconds;
         }
 
         public void SetLoadBalancingExecution(long elapsedMilliseconds)
