@@ -1,7 +1,7 @@
 ﻿using FluentValidation;
+using GiftCertificateService.Contracts.V1.Responses;
 using GiftCertificateService.Exceptions;
 using GiftCertificateService.Logging;
-using GiftCertificateService.Models;
 using GiftCertificateService.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -43,10 +43,10 @@ namespace GiftCertificateService.Controllers
         [Authorize]
         [HttpGet]
         [Produces("application/json")]
-        [ProducesResponseType(typeof(ResponseCertGet), 200)]
-        [ProducesResponseType(typeof(ResponseError), 400)]
+        [ProducesResponseType(typeof(CertGetResponse), 200)]
+        [ProducesResponseType(typeof(ErrorResponse), 400)]
         [ProducesResponseType(401)]
-        [ProducesResponseType(typeof(ResponseError), 500)]
+        [ProducesResponseType(typeof(ErrorResponse), 500)]
         public async Task<IActionResult> GetInfoAsync(string barcode)
         {
             var barcodesList = new List<string>
@@ -76,10 +76,10 @@ namespace GiftCertificateService.Controllers
         [Authorize]
         [HttpPost]
         [Produces("application/json")]
-        [ProducesResponseType(typeof(IEnumerable<ResponseCertGet>), 200)]
-        [ProducesResponseType(typeof(ResponseError), 400)]
+        [ProducesResponseType(typeof(IEnumerable<CertGetResponse>), 200)]
+        [ProducesResponseType(typeof(ErrorResponse), 400)]
         [ProducesResponseType(401)]
-        [ProducesResponseType(typeof(ResponseError), 500)]
+        [ProducesResponseType(typeof(ErrorResponse), 500)]
         public async Task<IActionResult> GetInfoMultipleAsync([FromBody]List<string> barcode)
         {
             var result = await GetInfoByListAsync(barcode);
@@ -92,10 +92,10 @@ namespace GiftCertificateService.Controllers
 
             if (!validationResult.IsValid)
             {
-                return BadRequest(new ResponseError { Error = validationResult.ToString() });
+                return BadRequest(new ErrorResponse { Error = validationResult.ToString() });
             }
 
-            List<ResponseCertGet> result;
+            List<CertGetResponse> result;
 
             try
             {
@@ -103,12 +103,12 @@ namespace GiftCertificateService.Controllers
             }
             catch (DBConnectionNotFoundException)
             {
-                return StatusCode(500, new ResponseError { Error = "Available database connection not found" });
+                return StatusCode(500, new ErrorResponse { Error = "Available database connection not found" });
             }
             catch (Exception ex)
             {
                 _logger.LogErrorMessage(ex.Message, ex);
-                return StatusCode(500, new ResponseError { Error = "Internal server error" });
+                return StatusCode(500, new ErrorResponse { Error = "Internal server error" });
             }
             finally
             {
@@ -119,7 +119,7 @@ namespace GiftCertificateService.Controllers
 
             if (result.Count == 0)
             {
-                return BadRequest(new ResponseError { Error = "Certs aren't valid" });
+                return BadRequest(new ErrorResponse { Error = "Certs aren't valid" });
             }
 
             return single ? Ok(result.First()) : Ok(result.ToArray());

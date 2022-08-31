@@ -1,5 +1,6 @@
 ﻿using AuthLibrary.Data;
 using DateTimeService.Areas.Identity.Models;
+using GiftCertificateService.Contracts.V1.Responses;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -34,13 +35,7 @@ namespace GiftCertificateService.Controllers
                 if (response == null)
                     return BadRequest();
 
-                return Ok(new
-                {
-                    token = response.JwtToken,
-                    expiration = response.JwtValidTo,
-                    refresh = response.RefreshToken,
-                    expiration_refresh = response.RefreshValidTo
-                });
+                return Ok(new LoginResponse(response));
             }
             return Unauthorized();
         }
@@ -55,13 +50,7 @@ namespace GiftCertificateService.Controllers
             if (response == null)
                 return Unauthorized(new { message = "Invalid token" });
 
-            return Ok(new
-            {
-                token = response.JwtToken,
-                expiration = response.JwtValidTo,
-                refresh = response.RefreshToken,
-                expiration_refresh = response.RefreshValidTo
-            });
+            return Ok(new LoginResponse(response));
         }
 
 

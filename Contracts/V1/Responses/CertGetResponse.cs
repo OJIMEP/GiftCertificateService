@@ -1,8 +1,8 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace GiftCertificateService.Models
+namespace GiftCertificateService.Contracts.V1.Responses
 {
-    public class ResponseCertGet
+    public class CertGetResponse
     {
         [JsonPropertyName("barcode")]
         public string? Barcode { get; set; }

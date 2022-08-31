@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using GiftCertificateService.Contracts.V1.Responses;
 using GiftCertificateService.Data;
 using GiftCertificateService.Exceptions;
 using GiftCertificateService.Logging;
@@ -26,10 +27,10 @@ namespace GiftCertificateService.Services
             logElement = new();
         }
 
-        public async Task<List<ResponseCertGet>> GetCertsInfoByListAsync(List<string> barcodes)
+        public async Task<List<CertGetResponse>> GetCertsInfoByListAsync(List<string> barcodes)
         {
             barcodesList = barcodes;
-            var result = new List<ResponseCertGet>();
+            var result = new List<CertGetResponse>();
 
             SqlConnection sqlConnection = await GetSqlConnectionAsync();
 
@@ -54,22 +55,25 @@ namespace GiftCertificateService.Services
             return result;
         }
 
-        private async Task<List<ResponseCertGet>> GetCertsInfoResult(SqlCommand sqlCommand)
+        private async Task<List<CertGetResponse>> GetCertsInfoResult(SqlCommand sqlCommand)
         {
             SqlDataReader dataReader = await sqlCommand.ExecuteReaderAsync();
 
-            var result = (await dataReader.MapTo<ResponseCertGetDTO>(_mapper))
-                .Select<ResponseCertGetDTO, ResponseCertGet>(x =>
-                new ResponseCertGet
+            var resultDTO = new List<CertGetResponseDTO>();
+            while (await dataReader.ReadAsync())
+            {
+                resultDTO.Add(_mapper.Map<CertGetResponseDTO>(dataReader));
+            }
+
+            _ = dataReader.CloseAsync();
+            
+            return resultDTO.Select(x =>
+                new CertGetResponse
                 {
                     Barcode = barcodesList.Find(b => b.ToUpper() == x.Barcode) ?? x.Barcode,
                     Sum = x.Sum
                 })
                 .ToList();
-            
-            _ = dataReader.CloseAsync();
-
-            return result;
         }
 
         private async Task<SqlConnection> GetSqlConnectionAsync()
