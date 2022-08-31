@@ -1,11 +1,11 @@
-﻿using GiftCertificateService.Logging;
-using GiftCertificateService.Models;
+﻿using GiftCertificateService.Contracts.V1.Responses;
+using GiftCertificateService.Logging;
 
 namespace GiftCertificateService.Services
 {
     public interface ICertService
     {
-        Task<List<ResponseCertGet>> GetCertsInfoByListAsync(List<string> barcodes);
+        Task<List<CertGetResponse>> GetCertsInfoByListAsync(List<string> barcodes);
 
         ElasticLogElementDTO GetLog();
     }

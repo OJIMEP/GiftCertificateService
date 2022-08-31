@@ -1,14 +1,16 @@
 ﻿using AutoMapper;
+using GiftCertificateService.Models;
 using Microsoft.Data.SqlClient;
 using System.Data;
+using System.Data.Common;
 
-namespace GiftCertificateService.Models
+namespace GiftCertificateService.Mapping
 {
     public class MapperProfile : Profile
     {
         public MapperProfile()
         {
-            CreateMap<SqlDataReader, ResponseCertGetDTO>()
+            CreateMap<DbDataReader, CertGetResponseDTO>()
                 .ForMember(dest => dest.Barcode, opt => opt.MapFrom(src => src.GetString("Barcode")))
                 .ForMember(dest => dest.Sum, opt => opt.MapFrom(src => src.GetDecimal("SumLeft")));
         }

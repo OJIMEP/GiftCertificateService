@@ -1,8 +1,8 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace GiftCertificateService.Models
+namespace GiftCertificateService.Contracts.V1.Responses
 {
-    public class ResponseError
+    public class ErrorResponse
     {
         [JsonPropertyName("error")]
         public string? Error { get; set; }

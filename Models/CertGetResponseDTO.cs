@@ -1,6 +1,6 @@
 ﻿namespace GiftCertificateService.Models
 {
-    public class ResponseCertGetDTO
+    public class CertGetResponseDTO
     {
         public string? Barcode { get; set; }
         
