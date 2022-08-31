@@ -1,4 +1,5 @@
-﻿using GiftCertificateService.Data;
+﻿using AutoMapper;
+using GiftCertificateService.Data;
 using GiftCertificateService.Exceptions;
 using GiftCertificateService.Logging;
 using GiftCertificateService.Models;
@@ -11,13 +12,15 @@ namespace GiftCertificateService.Services
     public class CertService : ICertService
     {
         private readonly ILoadBalancing _loadBalancing;
+        private readonly IMapper _mapper;
         private readonly Stopwatch _watch;
         private readonly ElasticLogElementDTO logElement;
         private List<string> barcodesList;
 
-        public CertService(ILoadBalancing loadBalancing)
+        public CertService(ILoadBalancing loadBalancing, IMapper mapper)
         {
             _loadBalancing = loadBalancing;
+            _mapper = mapper;
             _watch = new();
             barcodesList = new();
             logElement = new();
@@ -53,21 +56,17 @@ namespace GiftCertificateService.Services
 
         private async Task<List<ResponseCertGet>> GetCertsInfoResult(SqlCommand sqlCommand)
         {
-            List<ResponseCertGet> result = new();
-
             SqlDataReader dataReader = await sqlCommand.ExecuteReaderAsync();
 
-            while (await dataReader.ReadAsync())
-            {
-                var dbBarcode = dataReader.GetString(0);
-
-                result.Add(new ResponseCertGet
+            var result = (await dataReader.MapTo<ResponseCertGetDTO>(_mapper))
+                .Select<ResponseCertGetDTO, ResponseCertGet>(x =>
+                new ResponseCertGet
                 {
-                    Barcode = barcodesList.Find(x => x.ToUpper() == dbBarcode) ?? dbBarcode,
-                    Sum = dataReader.GetDecimal(1)
-                });
-            }
-
+                    Barcode = barcodesList.Find(b => b.ToUpper() == x.Barcode) ?? x.Barcode,
+                    Sum = x.Sum
+                })
+                .ToList();
+            
             _ = dataReader.CloseAsync();
 
             return result;

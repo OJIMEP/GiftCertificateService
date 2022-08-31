@@ -15,6 +15,8 @@ namespace GiftCertificateService
             // install all services via IInstaller
             builder.Services.InstallServicesInAssembly(builder.Configuration);
 
+            builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
+
             builder.Logging.AddProvider(
                 new HttpLoggerProvider(
                     builder.Configuration["loggerHost"], 
