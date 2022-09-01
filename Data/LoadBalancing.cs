@@ -99,15 +99,13 @@ namespace GiftCertificateService.Data
 
         private static async Task<SqlConnection?> GetConnectionByDatabaseInfo(DatabaseInfo databaseInfo)
         {
-            var queryStringCheck = "";
-            if (databaseInfo.DatabaseType == DatabaseType.Main)
-                queryStringCheck = Queries.DatabaseBalancingMain;
-
-            if (databaseInfo.DatabaseType == DatabaseType.ReplicaFull)
-                queryStringCheck = Queries.DatabaseBalancingReplicaFull;
-
-            if (databaseInfo.DatabaseType == DatabaseType.ReplicaTables)
-                queryStringCheck = Queries.DatabaseBalancingReplicaTables;
+            var queryStringCheck = databaseInfo.DatabaseType switch
+            {
+                DatabaseType.Main => Queries.DatabaseBalancingMain,
+                DatabaseType.ReplicaFull => Queries.DatabaseBalancingReplicaFull,
+                DatabaseType.ReplicaTables => Queries.DatabaseBalancingReplicaTables,
+                _ => ""
+            };
 
             //sql connection object
             SqlConnection connection = new(databaseInfo.Connection);
