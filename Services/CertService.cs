@@ -57,23 +57,22 @@ namespace GiftCertificateService.Services
 
         private async Task<List<CertGetResponse>> GetCertsInfoResult(SqlCommand sqlCommand)
         {
-            SqlDataReader dataReader = await sqlCommand.ExecuteReaderAsync();
-
             var resultDTO = new List<CertGetResponseDTO>();
-            while (await dataReader.ReadAsync())
+
+            using (var dataReader = await sqlCommand.ExecuteReaderAsync())
             {
-                resultDTO.Add(_mapper.Map<CertGetResponseDTO>(dataReader));
+                while (await dataReader.ReadAsync())
+                {
+                    resultDTO.Add(_mapper.Map<CertGetResponseDTO>(dataReader));
+                }
             }
 
-            _ = dataReader.CloseAsync();
-            
             return resultDTO.Select(x =>
                 new CertGetResponse
                 {
                     Barcode = barcodesList.Find(b => b.ToUpper() == x.Barcode) ?? x.Barcode,
                     Sum = x.Sum
-                })
-                .ToList();
+                }).ToList();
         }
 
         private async Task<SqlConnection> GetSqlConnectionAsync()
