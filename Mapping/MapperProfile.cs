@@ -1,6 +1,5 @@
 ﻿using AutoMapper;
 using GiftCertificateService.Models;
-using Microsoft.Data.SqlClient;
 using System.Data;
 using System.Data.Common;
 
