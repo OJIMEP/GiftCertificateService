@@ -82,7 +82,6 @@ namespace GiftCertificateService.Services
 
             DbConnection dbConnection = new();
 
-            _watch.StartMeasure();
             try
             {
                 dbConnection = await _loadBalancing.GetDatabaseConnectionAsync();
@@ -99,7 +98,7 @@ namespace GiftCertificateService.Services
                 loadBalancingErrorDescription = "Не найдено доступное соединение к БД";
             }
 
-            logElement.SetLoadBalancingExecution(_watch.EndMeasure());
+            logElement.SetLoadBalancingExecution(dbConnection.ConnectTimeInMilliseconds);
             logElement.SetDatabaseConnection(dbConnection.ConnectionWithoutCredentials);
 
             if (loadBalancingError)

@@ -25,6 +25,9 @@ namespace GiftCertificateService.Data
         {
             var result = new DbConnection();
 
+            Stopwatch watch = new();
+            watch.StartMeasure();
+
             var connectionParameters = _configuration.GetSection("OneSDatabases")
                 .Get<List<DatabaseConnectionParameter>>()
                 .Select(x => new DatabaseInfo(x));
@@ -47,23 +50,17 @@ namespace GiftCertificateService.Data
                     if (firstAvailable && failedConnections.Contains(connParameter.Connection))
                         continue;
 
-                    Stopwatch watch = new();
                     percentCounter += connParameter.Priority;
                     if (timeMs <= percentCounter && connParameter.Priority != 0 || firstAvailable)
                     {
                         try
                         {
-                            watch.StartMeasure();
-
                             conn = await GetConnectionByDatabaseInfo(connParameter);
-
-                            watch.EndMeasure();
 
                             resultString = connParameter.Connection;
                             
                             result.Connection = conn;
                             result.DatabaseType = connParameter.DatabaseType;
-                            result.UseAggregations = connParameter.CustomAggregationsAvailable;
                             result.ConnectionWithoutCredentials = connParameter.ConnectionWithoutCredentials;
                             break;
                         }
@@ -72,7 +69,6 @@ namespace GiftCertificateService.Data
                             var logElement = new ElasticLogElement(LogStatus.Error)
                             {
                                 ErrorDescription = ex.Message,
-                                LoadBalancingExecution = watch.EndMeasure(),
                                 DatabaseConnection = connParameter.ConnectionWithoutCredentials
                             };
 
@@ -93,6 +89,8 @@ namespace GiftCertificateService.Data
                 else
                     firstAvailable = true;
             }
+
+            result.ConnectTimeInMilliseconds = watch.EndMeasure();
 
             return result;
         }
